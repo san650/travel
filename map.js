@@ -147,6 +147,15 @@ export const showRoute = (base, act, { fit = false } = {}) => {
   if (fit) map.fitBounds(line.getBounds().pad(0.2), { maxZoom: 10 });
 };
 
+export const focusOn = (points) => {
+  if (!map || !points.length) return;
+  if (points.length === 1) {
+    map.setView([points[0].lat, points[0].lon], Math.max(map.getZoom(), 9));
+  } else {
+    map.fitBounds(L.latLngBounds(points.map((p) => [p.lat, p.lon])).pad(0.3), { maxZoom: 10 });
+  }
+};
+
 export const clearRoute = () => {
   if (routeLayer) routeLayer.clearLayers();
 };

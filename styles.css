@@ -294,6 +294,166 @@ main {
   background: var(--cream);
 }
 
+.seg {
+  display: flex;
+  gap: 0;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--cream);
+  overflow: hidden;
+  margin-bottom: 0.9rem;
+  box-shadow: 0 2px 0 rgba(58, 44, 35, 0.2);
+}
+
+.seg__btn {
+  flex: 1;
+  border: 0;
+  background: none;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.seg__btn--active {
+  background: var(--ink);
+  color: var(--cream);
+}
+
+/* ---------- calendario ---------- */
+
+.cal-month {
+  background: var(--cream);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 0.8rem 0.7rem 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.cal-month__name {
+  font-family: 'Alegreya', Georgia, serif;
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--terra-dark);
+  margin: 0 0 0.5rem 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.cal-wd {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding-bottom: 0.2rem;
+}
+
+/* Sin aspect-ratio: en grid, Safari colapsa la altura (gotcha WebKit). */
+.cal-day {
+  min-height: 46px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  padding: 4px 0 3px;
+  background: var(--paper);
+  border: 2px solid transparent;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.cal-day:not(:disabled) { border-color: var(--ink); background: var(--cream); }
+
+.cal-day--free { color: var(--ink-soft); cursor: default; }
+
+.cal-day--out { opacity: 0.25; cursor: default; }
+
+.cal-day.cal-day--today { border-color: var(--amber); }
+
+.cal-day.cal-day--sel {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--cream);
+}
+
+.cal-day.cal-day--sel .cal-day__dot { outline: 1px solid var(--cream); }
+
+.cal-day__num { line-height: 1; }
+
+.cal-day__dots {
+  display: flex;
+  gap: 2px;
+  justify-content: center;
+}
+
+.cal-day__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--k, var(--terra));
+}
+
+.day-detail {
+  background: var(--cream);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 0.8rem 0.9rem;
+}
+
+.day-detail h3 {
+  font-family: 'Alegreya', Georgia, serif;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--terra);
+  margin: 0 0 0.5rem;
+}
+
+.day-detail__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.day-detail__item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  text-align: left;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  padding: 0.4rem 0.7rem;
+  font-weight: 700;
+}
+
+.day-detail__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--k, var(--terra));
+  flex: none;
+}
+
+.day-detail__city {
+  margin-left: auto;
+  color: var(--sea);
+  font-size: 0.85rem;
+}
+
 .empty {
   background: var(--cream);
   border: 2px dashed var(--ink-soft);
@@ -318,10 +478,9 @@ main {
 .cards {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 6px 0 0;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
 }
 
 .card {
@@ -331,7 +490,22 @@ main {
   border-radius: 14px;
   box-shadow: var(--shadow);
   overflow: hidden;
+  transition: transform 340ms var(--ease), margin 340ms var(--ease), box-shadow 340ms var(--ease);
 }
+
+/* pila: las tarjetas cerradas se encaballan con leve rotación alternada */
+.card + .card { margin-top: -12px; }
+
+.card:nth-child(odd):not(.card--open) { transform: rotate(-0.5deg); }
+.card:nth-child(even):not(.card--open) { transform: rotate(0.6deg); }
+
+.card--open {
+  z-index: 2;
+  box-shadow: 0 4px 0 rgba(58, 44, 35, 0.2), 0 18px 34px -14px rgba(58, 44, 35, 0.55);
+}
+
+.card + .card--open { margin-top: 12px; }
+.card--open + .card { margin-top: 12px; }
 
 .card.is-animate {
   opacity: 0;
@@ -339,51 +513,99 @@ main {
   animation-delay: calc(var(--i, 0) * 70ms);
 }
 
+/* usa `translate` (no `transform`) para no pisar la rotación de la pila */
 @keyframes cardIn {
-  from { opacity: 0; transform: translateY(14px) rotate(-0.4deg); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; translate: 0 14px; }
+  to { opacity: 1; translate: 0 0; }
 }
 
-.card--active { outline: 3px solid var(--amber); outline-offset: -3px; }
-
-.card__body {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-areas:
-    'num title stamp'
-    'num city  stamp'
-    'num dates dates'
-    'num days  days'
-    'num warn  warn'
-    'num desc  desc';
-  column-gap: 0.8rem;
+.card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
   width: 100%;
   text-align: left;
   background: none;
   border: 0;
-  padding: 0.9rem 0.9rem 0.7rem;
+  padding: 0.55rem 0.8rem;
   cursor: pointer;
 }
 
-.card__num {
-  grid-area: num;
-  width: 34px;
-  height: 34px;
+.card__date {
+  flex: none;
+  width: 46px;
+  height: 46px;
   display: grid;
   place-items: center;
-  background: var(--terra);
-  color: var(--cream);
+  background: var(--paper-deep);
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.card__title {
+  flex: 1;
+  min-width: 0;
   font-family: 'Alegreya', Georgia, serif;
   font-weight: 800;
-  font-size: 1.1rem;
-  border-radius: 50%;
+  font-size: 1.15rem;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card--open .card__title { white-space: normal; }
+
+.card__pin {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  background: var(--k, var(--terra));
   border: 2px solid var(--ink);
-  align-self: start;
+  border-radius: 50% 50% 50% 4px;
+  rotate: -45deg;
+  transition: rotate 340ms var(--ease);
+}
+
+.card--open .card__pin { rotate: 0deg; border-radius: 50%; }
+
+.card__pin span {
+  rotate: 45deg;
+  color: var(--cream);
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: rotate 340ms var(--ease);
+}
+
+.card--open .card__pin span { rotate: 0deg; }
+
+/* contenido colapsable */
+.card__wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 380ms var(--ease);
+}
+
+.card__inner {
+  overflow: hidden;
+  min-height: 0;
+  padding: 0 0.9rem;
+}
+
+.card--open .card__wrap { grid-template-rows: 1fr; }
+
+.card__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .card__stamp {
-  grid-area: stamp;
-  align-self: start;
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -392,46 +614,35 @@ main {
   border: 2px solid var(--k, var(--terra));
   border-radius: 6px;
   padding: 0.1rem 0.45rem;
-  rotate: 3deg;
+  rotate: 2deg;
   white-space: nowrap;
 }
 
-.card__title {
-  grid-area: title;
-  font-family: 'Alegreya', Georgia, serif;
-  font-weight: 800;
-  font-size: 1.3rem;
-  line-height: 1.15;
-}
-
 .card__city {
-  grid-area: city;
   color: var(--sea);
   font-weight: 700;
   font-size: 0.92rem;
 }
 
 .card__dates {
-  grid-area: dates;
-  margin-top: 0.35rem;
+  display: block;
+  margin-top: 0.5rem;
   font-size: 0.95rem;
   color: var(--ink);
   font-weight: 700;
 }
 
 .card__days {
-  grid-area: days;
+  display: block;
   font-size: 0.8rem;
   color: var(--ink-soft);
 }
 
 .card__warn {
-  grid-area: warn;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  justify-self: start;
-  margin-top: 0.4rem;
+  margin-top: 0.45rem;
   background: rgba(232, 163, 61, 0.22);
   border: 2px solid var(--amber);
   border-radius: 8px;
@@ -445,14 +656,13 @@ main {
 
 .card--clash { border-color: var(--terra-dark); }
 
-.card--clash .card__num {
+.card--clash .card__date {
   background: var(--amber);
-  color: var(--ink);
 }
 
 .card__desc {
-  grid-area: desc;
-  margin-top: 0.4rem;
+  display: block;
+  margin-top: 0.45rem;
   font-size: 0.95rem;
   color: var(--ink-soft);
   white-space: pre-line;
@@ -465,7 +675,7 @@ main {
   gap: 0.5rem;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 0 0.9rem 0.75rem;
+  padding: 0.6rem 0 0.2rem;
 }
 
 .photo {
@@ -489,7 +699,9 @@ main {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
-  padding: 0.55rem 0.9rem 0.7rem;
+  padding: 0.55rem 0 0.7rem;
+  margin: 0.5rem -0.9rem 0;
+  padding-right: 0.9rem;
   border-top: 2px dashed rgba(58, 44, 35, 0.35);
   position: relative;
 }

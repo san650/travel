@@ -99,7 +99,9 @@ const hideRoute = () => {
 
 const applyActiveClasses = () => {
   for (const li of els.cards.children) {
-    li.classList.toggle('card--active', li.dataset.id === selectedId);
+    const open = li.dataset.id === selectedId;
+    li.classList.toggle('card--open', open);
+    li.querySelector('.card__head')?.setAttribute('aria-expanded', String(open));
   }
 };
 
@@ -251,10 +253,12 @@ const renderCards = () => {
       li.classList.add('is-animate');
       li.style.setProperty('--i', String(Math.min(i, 6)));
     }
+    li.style.setProperty('--k', `var(--k-${KINDS[act.kind] ? act.kind : 'otro'})`);
     slot(li, 'num').textContent = String(i + 1);
-    const stamp = slot(li, 'stamp');
-    stamp.textContent = KINDS[act.kind] ?? KINDS.otro;
-    stamp.style.setProperty('--k', `var(--k-${KINDS[act.kind] ? act.kind : 'otro'})`);
+    const d0 = parseDate(act.start);
+    slot(li, 'date').textContent =
+      `${String(d0.getDate()).padStart(2, '0')}/${String(d0.getMonth() + 1).padStart(2, '0')}`;
+    slot(li, 'stamp').textContent = KINDS[act.kind] ?? KINDS.otro;
     slot(li, 'title').textContent = act.title;
     slot(li, 'city').textContent = act.city;
     slot(li, 'dates').textContent = fmtRange(act);
@@ -283,12 +287,12 @@ const renderCards = () => {
       }
     }
 
-    const body = slot(li, 'body');
-    body.onclick = () => select(act);
-    body.addEventListener('mouseenter', () => {
+    const head = slot(li, 'head');
+    head.onclick = () => select(act);
+    head.addEventListener('mouseenter', () => {
       if (!selectedId) showRouteFor(act, { fit: false });
     });
-    body.addEventListener('mouseleave', () => {
+    head.addEventListener('mouseleave', () => {
       if (!selectedId) hideRoute();
     });
 
@@ -309,6 +313,127 @@ const renderCards = () => {
   els.cards.replaceChildren(...nodes);
 };
 
+// ---------- calendario ----------
+
+let viewMode = 'list';
+let selectedDay = null;
+
+const toIso = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const buildDayMap = (acts) => {
+  const map = new Map();
+  for (const act of acts) {
+    const end = parseDate(act.end || act.start);
+    for (let d = parseDate(act.start); d <= end; d.setDate(d.getDate() + 1)) {
+      const iso = toIso(d);
+      if (!map.has(iso)) map.set(iso, []);
+      map.get(iso).push(act);
+    }
+  }
+  return map;
+};
+
+const el = (tag, className, text) => {
+  const n = document.createElement(tag);
+  if (className) n.className = className;
+  if (text != null) n.textContent = text;
+  return n;
+};
+
+const monthFmt = new Intl.DateTimeFormat('es', { month: 'long', year: 'numeric' });
+
+const renderDayDetail = (dayMap) => {
+  const panel = $('day-detail');
+  const dayActs = selectedDay ? dayMap.get(selectedDay) ?? [] : [];
+  if (!dayActs.length) { panel.hidden = true; return; }
+  panel.hidden = false;
+  $('day-detail-title').textContent =
+    `${fmtDay.format(parseDate(selectedDay))} · Día ${tripDayNum(selectedDay)} del viaje`;
+  $('day-detail-list').replaceChildren(...dayActs.map((act) => {
+    const li = el('li');
+    const btn = el('button', 'day-detail__item');
+    const dot = el('span', 'day-detail__dot');
+    dot.style.setProperty('--k', `var(--k-${KINDS[act.kind] ? act.kind : 'otro'})`);
+    btn.append(dot, el('span', 'day-detail__title', act.title), el('span', 'day-detail__city', act.city));
+    btn.onclick = () => select(act);
+    li.appendChild(btn);
+    return li;
+  }));
+};
+
+const renderCalendar = () => {
+  const acts = sorted();
+  const dayMap = buildDayMap(acts);
+  const box = $('cal-months');
+  const todayIso = toIso(new Date());
+  const first = parseDate(TRIP.start);
+  const last = parseDate(TRIP.end);
+
+  const months = [];
+  for (let m = new Date(first.getFullYear(), first.getMonth(), 1); m <= last; m = new Date(m.getFullYear(), m.getMonth() + 1, 1)) {
+    // Meses con un solo día de viaje (octubre: solo la llegada) no se muestran.
+    const daysInMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+    let tripDays = 0;
+    for (let day = 1; day <= daysInMonth; day++) {
+      const iso = toIso(new Date(m.getFullYear(), m.getMonth(), day));
+      if (iso >= TRIP.start && iso <= TRIP.end) tripDays++;
+    }
+    if (tripDays > 1) months.push(m);
+  }
+
+  box.replaceChildren(...months.map((m0) => {
+    const card = el('div', 'cal-month');
+    const name = monthFmt.format(m0);
+    card.appendChild(el('h3', 'cal-month__name', name.charAt(0).toUpperCase() + name.slice(1)));
+    const grid = el('div', 'cal-grid');
+    for (const wd of ['L', 'M', 'X', 'J', 'V', 'S', 'D']) grid.appendChild(el('span', 'cal-wd', wd));
+    const lead = (m0.getDay() + 6) % 7;
+    for (let i = 0; i < lead; i++) grid.appendChild(el('span', 'cal-blank'));
+    const daysInMonth = new Date(m0.getFullYear(), m0.getMonth() + 1, 0).getDate();
+    for (let day = 1; day <= daysInMonth; day++) {
+      const iso = toIso(new Date(m0.getFullYear(), m0.getMonth(), day));
+      const inTrip = iso >= TRIP.start && iso <= TRIP.end;
+      const dayActs = dayMap.get(iso) ?? [];
+      const cell = el('button', 'cal-day');
+      cell.type = 'button';
+      if (!inTrip) { cell.classList.add('cal-day--out'); cell.disabled = true; }
+      if (iso === todayIso) cell.classList.add('cal-day--today');
+      if (iso === selectedDay) cell.classList.add('cal-day--sel');
+      cell.appendChild(el('span', 'cal-day__num', String(day)));
+      if (dayActs.length) {
+        const dots = el('span', 'cal-day__dots');
+        for (const kind of [...new Set(dayActs.map((a) => a.kind))].slice(0, 4)) {
+          const dot = el('span', 'cal-day__dot');
+          dot.style.setProperty('--k', `var(--k-${KINDS[kind] ? kind : 'otro'})`);
+          dots.appendChild(dot);
+        }
+        cell.appendChild(dots);
+      } else if (inTrip) {
+        cell.disabled = true;
+        cell.classList.add('cal-day--free');
+      }
+      cell.onclick = () => {
+        selectedDay = selectedDay === iso ? null : iso;
+        renderCalendar();
+        if (selectedDay && dayActs.length) tripMap.focusOn(dayActs);
+      };
+      grid.appendChild(cell);
+    }
+    card.appendChild(grid);
+    return card;
+  }));
+
+  renderDayDetail(dayMap);
+};
+
+const setView = (mode) => {
+  viewMode = mode;
+  $('btn-view-list').classList.toggle('seg__btn--active', mode === 'list');
+  $('btn-view-cal').classList.toggle('seg__btn--active', mode === 'cal');
+  render();
+};
+
 const render = () => {
   const acts = sorted();
   if (selectedId && !acts.some((a) => a.id === selectedId)) {
@@ -316,6 +441,10 @@ const render = () => {
     hideRoute();
   }
   renderCards();
+  els.cards.hidden = viewMode !== 'list';
+  els.empty.hidden = viewMode !== 'list' || acts.length > 0;
+  $('calendar').hidden = viewMode !== 'cal';
+  if (viewMode === 'cal') renderCalendar();
   applyActiveClasses();
   tripMap.renderMarkers(acts, selectedId, (a) => select(a, { scrollCard: true }));
   const sel = acts.find((a) => a.id === selectedId);
@@ -515,6 +644,8 @@ const start = async () => {
   tripMap.initMap($('map'), TRIP.base);
 
   els.fab.onclick = () => openForm(null);
+  $('btn-view-list').onclick = () => setView('list');
+  $('btn-view-cal').onclick = () => setView('cal');
   els.undo.onclick = () => store.undo();
   els.redo.onclick = () => store.redo();
 

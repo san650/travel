@@ -163,6 +163,11 @@
         <span id="count-stamp" class="count-stamp"></span>
       </div>
 
+      <div class="seg" role="group" aria-label="Vista del itinerario">
+        <button type="button" id="btn-view-list" class="seg__btn seg__btn--active">Lista</button>
+        <button type="button" id="btn-view-cal" class="seg__btn">Calendario</button>
+      </div>
+
       <div id="empty-state" class="empty" hidden>
         <p class="empty__big">El mapa está en blanco…</p>
         <p>¡todavía! Agregá tu primera parada: una escapada a Benidorm,
@@ -170,6 +175,14 @@
       </div>
 
       <ol id="cards" class="cards"></ol>
+
+      <section id="calendar" class="calendar" hidden>
+        <div id="cal-months"></div>
+        <div id="day-detail" class="day-detail" hidden>
+          <h3 id="day-detail-title"></h3>
+          <ul id="day-detail-list" class="day-detail__list"></ul>
+        </div>
+      </section>
     </section>
 
   </main>
@@ -212,28 +225,35 @@
 
   <template id="tpl-card">
     <li class="card">
-      <button type="button" class="card__body" data-slot="body">
-        <span class="card__num" data-slot="num"></span>
-        <span class="card__stamp" data-slot="stamp"></span>
+      <button type="button" class="card__head" data-slot="head" aria-expanded="false">
+        <span class="card__date" data-slot="date"></span>
         <span class="card__title" data-slot="title"></span>
-        <span class="card__city" data-slot="city"></span>
-        <span class="card__dates" data-slot="dates"></span>
-        <span class="card__days" data-slot="days"></span>
-        <span class="card__warn" data-slot="warn" hidden>
-          <svg class="warn-icon" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-            <path d="M12 3 21.3 19.2 a1.7 1.7 0 0 1 -1.5 2.5 H4.2 a1.7 1.7 0 0 1 -1.5 -2.5 Z"
-                  fill="#E8A33D" stroke="#9E2F14" stroke-width="1.8" stroke-linejoin="round" />
-            <rect x="11.05" y="9.2" width="1.9" height="5.6" rx="0.95" fill="#3A2C23" />
-            <circle cx="12" cy="17.9" r="1.25" fill="#3A2C23" />
-          </svg>
-          <span data-slot="warn-text"></span>
-        </span>
-        <span class="card__desc" data-slot="desc"></span>
+        <span class="card__pin" aria-hidden="true"><span data-slot="num"></span></span>
       </button>
-      <div class="card__photos" data-slot="photos" hidden></div>
-      <div class="card__actions">
-        <button type="button" class="btn btn--small" data-slot="edit">Editar</button>
-        <button type="button" class="btn btn--small btn--danger" data-slot="delete">Borrar</button>
+      <div class="card__wrap">
+        <div class="card__inner">
+          <div class="card__meta">
+            <span class="card__stamp" data-slot="stamp"></span>
+            <span class="card__city" data-slot="city"></span>
+          </div>
+          <span class="card__dates" data-slot="dates"></span>
+          <span class="card__days" data-slot="days"></span>
+          <span class="card__warn" data-slot="warn" hidden>
+            <svg class="warn-icon" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+              <path d="M12 3 21.3 19.2 a1.7 1.7 0 0 1 -1.5 2.5 H4.2 a1.7 1.7 0 0 1 -1.5 -2.5 Z"
+                    fill="#E8A33D" stroke="#9E2F14" stroke-width="1.8" stroke-linejoin="round" />
+              <rect x="11.05" y="9.2" width="1.9" height="5.6" rx="0.95" fill="#3A2C23" />
+              <circle cx="12" cy="17.9" r="1.25" fill="#3A2C23" />
+            </svg>
+            <span data-slot="warn-text"></span>
+          </span>
+          <span class="card__desc" data-slot="desc"></span>
+          <div class="card__photos" data-slot="photos" hidden></div>
+          <div class="card__actions">
+            <button type="button" class="btn btn--small" data-slot="edit">Editar</button>
+            <button type="button" class="btn btn--small btn--danger" data-slot="delete">Borrar</button>
+          </div>
+        </div>
       </div>
     </li>
   </template>
