@@ -343,23 +343,28 @@ const el = (tag, className, text) => {
 
 const monthFmt = new Intl.DateTimeFormat('es', { month: 'long', year: 'numeric' });
 
-const renderDayDetail = (dayMap) => {
-  const panel = $('day-detail');
-  const dayActs = selectedDay ? dayMap.get(selectedDay) ?? [] : [];
-  if (!dayActs.length) { panel.hidden = true; return; }
-  panel.hidden = false;
-  $('day-detail-title').textContent =
+const openDayDrawer = (dayActs) => {
+  $('day-title').textContent =
     `${fmtDay.format(parseDate(selectedDay))} · Día ${tripDayNum(selectedDay)} del viaje`;
-  $('day-detail-list').replaceChildren(...dayActs.map((act) => {
+  $('day-list').replaceChildren(...dayActs.map((act) => {
     const li = el('li');
     const btn = el('button', 'day-detail__item');
+    const top = el('span', 'day-detail__top');
     const dot = el('span', 'day-detail__dot');
     dot.style.setProperty('--k', `var(--k-${KINDS[act.kind] ? act.kind : 'otro'})`);
-    btn.append(dot, el('span', 'day-detail__title', act.title), el('span', 'day-detail__city', act.city));
-    btn.onclick = () => select(act);
+    top.append(dot, el('span', 'day-detail__name', act.title), el('span', 'day-detail__city', act.city));
+    btn.appendChild(top);
+    const subParts = [fmtRange(act)];
+    if (act.desc) subParts.push(act.desc.length > 70 ? `${act.desc.slice(0, 70)}…` : act.desc);
+    btn.appendChild(el('span', 'day-detail__sub', subParts.join(' · ')));
+    btn.onclick = () => {
+      $('dlg-day').close();
+      if (selectedId !== act.id) select(act);
+    };
     li.appendChild(btn);
     return li;
   }));
+  $('dlg-day').showModal();
 };
 
 const renderCalendar = () => {
@@ -416,15 +421,16 @@ const renderCalendar = () => {
       cell.onclick = () => {
         selectedDay = selectedDay === iso ? null : iso;
         renderCalendar();
-        if (selectedDay && dayActs.length) tripMap.focusOn(dayActs);
+        if (selectedDay && dayActs.length) {
+          tripMap.focusOn(dayActs);
+          openDayDrawer(dayActs);
+        }
       };
       grid.appendChild(cell);
     }
     card.appendChild(grid);
     return card;
   }));
-
-  renderDayDetail(dayMap);
 };
 
 const setView = (mode) => {
@@ -655,6 +661,12 @@ const start = async () => {
   $('btn-banner-export').onclick = () => exportJson();
   $('btn-import').onclick = () => { els.dlgTools.close(); els.fileImport.click(); };
   $('btn-gpt').onclick = () => { els.dlgTools.close(); openGptDialog(); };
+
+  const dlgDay = $('dlg-day');
+  dlgDay.onclick = (ev) => { if (ev.target === dlgDay) dlgDay.close(); };
+  dlgDay.addEventListener('close', () => {
+    if (selectedDay) { selectedDay = null; if (viewMode === 'cal') renderCalendar(); }
+  });
 
   $('btn-gpt-cancel').onclick = () => els.dlgGpt.close();
   els.dlgGpt.onclick = (ev) => { if (ev.target === els.dlgGpt) els.dlgGpt.close(); };

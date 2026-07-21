@@ -178,10 +178,6 @@
 
       <section id="calendar" class="calendar" hidden>
         <div id="cal-months"></div>
-        <div id="day-detail" class="day-detail" hidden>
-          <h3 id="day-detail-title"></h3>
-          <ul id="day-detail-list" class="day-detail__list"></ul>
-        </div>
       </section>
     </section>
 
@@ -319,6 +315,12 @@
         <button type="submit" class="btn btn--primary" data-slot="form-submit">Guardar</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="dlg-day" class="drawer" aria-labelledby="day-title">
+    <div class="drawer__handle" aria-hidden="true"></div>
+    <h2 id="day-title" class="drawer__day-title"></h2>
+    <ul id="day-list" class="day-detail__list"></ul>
   </dialog>
 
   <dialog id="dlg-gpt" class="dlg" aria-labelledby="dlg-gpt-title">

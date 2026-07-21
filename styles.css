@@ -402,20 +402,12 @@ main {
   background: var(--k, var(--terra));
 }
 
-.day-detail {
-  background: var(--cream);
-  border: 2px solid var(--ink);
-  border-radius: 14px;
-  box-shadow: var(--shadow);
-  padding: 0.8rem 0.9rem;
-}
-
-.day-detail h3 {
+.drawer__day-title {
   font-family: 'Alegreya', Georgia, serif;
   font-weight: 800;
-  font-size: 1.05rem;
+  font-size: 1.2rem;
   color: var(--terra);
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.7rem;
 }
 
 .day-detail__list {
@@ -429,15 +421,32 @@ main {
 
 .day-detail__item {
   display: flex;
-  align-items: center;
-  gap: 0.55rem;
+  flex-direction: column;
+  gap: 0.2rem;
   width: 100%;
   text-align: left;
   background: var(--paper);
   border: 2px solid var(--ink);
   border-radius: 10px;
-  padding: 0.4rem 0.7rem;
+  padding: 0.5rem 0.7rem;
+}
+
+.day-detail__top {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   font-weight: 700;
+}
+
+.day-detail__name {
+  font-family: 'Alegreya', Georgia, serif;
+  font-weight: 800;
+  font-size: 1.02rem;
+}
+
+.day-detail__sub {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
 }
 
 .day-detail__dot {
