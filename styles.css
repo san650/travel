@@ -942,6 +942,77 @@ main {
 
 .dlg--confirm p { margin: 0.2rem 0 0; color: var(--ink-soft); }
 
+/* pantalla completa (alta de paradas) — sin scroll en iPhone 12 */
+
+.dlg--full {
+  inset: 0;
+  margin: 0;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 0.9rem)
+    max(1rem, env(safe-area-inset-right, 0px))
+    calc(env(safe-area-inset-bottom, 0px) + 0.8rem)
+    max(1rem, env(safe-area-inset-left, 0px));
+}
+
+.dlg--full[open] { animation: sheetUp 300ms var(--ease); }
+
+@keyframes sheetUp {
+  from { transform: translateY(28px); opacity: 0.4; }
+  to { transform: none; opacity: 1; }
+}
+
+.dlg--full form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: min(100%, 480px);
+  margin-inline: auto;
+}
+
+.dlg--full h2 { margin-bottom: 0.4rem; }
+
+.dlg--full .field { margin: 0.4rem 0; }
+
+.dlg--full .kinds {
+  margin: 0.4rem 0;
+  padding: 0.35rem 0.5rem 0.5rem;
+  gap: 0.35rem;
+}
+
+.dlg--full .kinds span {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.dlg--full .field-hint { margin: -0.1rem 0 0; }
+
+.field--grow {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.field--grow > span { flex: none; }
+
+.field--grow textarea {
+  flex: 1;
+  min-height: 56px;
+  resize: none;
+}
+
+.dlg--full .dlg__actions {
+  margin-top: auto;
+  padding-top: 0.6rem;
+}
+
 .dlg__actions {
   display: flex;
   justify-content: flex-end;

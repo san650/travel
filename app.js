@@ -167,13 +167,11 @@ const openForm = (act) => {
   f.elements.start.value = act?.start ?? '';
   f.elements.end.value = act?.end ?? '';
   f.elements.desc.value = act?.desc ?? '';
-  f.elements.photos.value = (act?.photos ?? []).join('\n');
   f.elements.kind.value = act?.kind ?? 'viaje';
   els.dlgForm.showModal();
 };
 
 els.formCancel.onclick = () => els.dlgForm.close();
-els.dlgForm.onclick = (ev) => { if (ev.target === els.dlgForm) els.dlgForm.close(); };
 
 els.form.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -184,10 +182,10 @@ els.form.addEventListener('submit', (e) => {
   let end = f.elements.end.value || '';
   const desc = f.elements.desc.value.trim();
   const kind = f.elements.kind.value;
-  const photos = f.elements.photos.value
-    .split('\n')
-    .map((s) => s.trim())
-    .filter((s) => /^https?:\/\//i.test(s));
+  // El formulario ya no edita fotos: se conservan las existentes (importadas).
+  const photos = editingId
+    ? store.state.doc.activities.find((a) => a.id === editingId)?.photos ?? []
+    : [];
 
   if (!title) return showFormError('Falta el título.');
   let city = findCity(cityName);

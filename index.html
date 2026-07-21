@@ -260,7 +260,7 @@
     </a>
   </template>
 
-  <dialog id="dlg-form" class="dlg" aria-labelledby="dlg-form-title">
+  <dialog id="dlg-form" class="dlg dlg--full" aria-labelledby="dlg-form-title">
     <form id="form-activity" novalidate>
       <h2 id="dlg-form-title" data-slot="form-title">Nueva parada</h2>
 
@@ -298,14 +298,9 @@
       </div>
       <p class="field-hint">Dejá «Hasta» vacío si es por el día.</p>
 
-      <label class="field">
+      <label class="field field--grow">
         <span>Descripción</span>
-        <textarea name="desc" rows="3" maxlength="500" placeholder="Playa, casco antiguo, mirador…"></textarea>
-      </label>
-
-      <label class="field">
-        <span>Fotos (una URL por línea)</span>
-        <textarea name="photos" rows="3" placeholder="https://…jpg"></textarea>
+        <textarea name="desc" rows="2" maxlength="500" placeholder="Playa, casco antiguo, mirador…"></textarea>
       </label>
 
       <p id="form-error" class="form-error" role="alert" hidden></p>
