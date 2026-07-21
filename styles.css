@@ -13,6 +13,8 @@
   --k-museo: #7B4B94;
   --k-foto: #20668C;
   --k-comida: #B07D2B;
+  --k-teatro: #AD3B6E;
+  --k-recital: #5A5FA0;
   --k-otro: #4E7C4E;
   --col: min(100% - 2rem, 480px);
   --gutter: 1rem;
@@ -249,7 +251,11 @@ main {
   font-size: 1.05rem;
 }
 
+.mk--home { color: var(--terra); }
+
 .mk--home > span { rotate: 0deg; }
+
+.mk--home svg { display: block; }
 
 .route-line {
   stroke-dasharray: 7 9;
@@ -538,6 +544,9 @@ main {
   right: max(1rem, env(safe-area-inset-right, 0px));
   bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
   z-index: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   background: var(--terra);
   color: var(--cream);
   border: 2px solid var(--terra-dark);
@@ -637,7 +646,19 @@ main {
 
 .drawer__item:active { translate: 0 1px; box-shadow: none; }
 
-.drawer__emoji { font-size: 1.4rem; flex: none; }
+.drawer__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  color: var(--terra);
+  background: var(--paper-deep);
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+}
+
+.drawer__icon svg { display: block; }
 
 .drawer__label small {
   display: block;
@@ -778,7 +799,9 @@ main {
 .kinds input { position: absolute; opacity: 0; pointer-events: none; }
 
 .kinds span {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   border: 2px solid var(--ink);
   border-radius: 999px;
   background: var(--cream);
@@ -786,6 +809,8 @@ main {
   font-size: 0.9rem;
   font-weight: 700;
 }
+
+.kinds .icon { display: block; flex: none; }
 
 .kinds input:checked + span {
   background: var(--ink);

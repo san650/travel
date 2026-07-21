@@ -6,6 +6,8 @@ const KIND_COLORS = {
   museo: 'var(--k-museo)',
   foto: 'var(--k-foto)',
   comida: 'var(--k-comida)',
+  teatro: 'var(--k-teatro)',
+  recital: 'var(--k-recital)',
   otro: 'var(--k-otro)',
 };
 
@@ -27,12 +29,27 @@ export const haversineKm = (a, b) => {
   return 2 * R * Math.asin(Math.sqrt(s));
 };
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// Referencia un símbolo del sprite SVG declarado en index.html.
+const svgUse = (id, size) => {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('width', String(size));
+  svg.setAttribute('height', String(size));
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS(SVG_NS, 'use');
+  use.setAttribute('href', `#${id}`);
+  svg.appendChild(use);
+  return svg;
+};
+
 const pinElement = (label, kind, extraClass) => {
   const el = document.createElement('div');
   el.className = 'mk' + (extraClass ? ' ' + extraClass : '');
   if (kind) el.style.setProperty('--k', KIND_COLORS[kind] || KIND_COLORS.otro);
   const span = document.createElement('span');
-  span.textContent = label;
+  if (label === null) span.appendChild(svgUse('i-home', 18));
+  else span.textContent = label;
   el.appendChild(span);
   return el;
 };
@@ -56,7 +73,7 @@ export const initMap = (el, base) => {
   markersLayer = L.layerGroup().addTo(map);
   routeLayer = L.layerGroup().addTo(map);
   L.marker([base.lat, base.lon], {
-    icon: pinIcon('🏠', null, 'mk--home'),
+    icon: pinIcon(null, null, 'mk--home'),
     zIndexOffset: 500,
     keyboard: false,
   }).addTo(map);

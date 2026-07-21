@@ -8,6 +8,8 @@ const KINDS = {
   museo: 'Museo',
   foto: 'Fotos',
   comida: 'Comida',
+  teatro: 'Teatro',
+  recital: 'Recital',
   otro: 'Otro',
 };
 
@@ -435,7 +437,7 @@ const buildGptPrompt = () => {
     '{"app":"travel-42uy","version":1,"activities":[{"title":"Escapada a Benidorm","kind":"viaje","city":"Benidorm","lat":38.5342,"lon":-0.1314,"start":"2026-12-10","end":"2026-12-13","desc":"Playa de Levante y casco antiguo.","photos":[]}]}',
     '',
     'Reglas del JSON:',
-    '- "kind" es uno de: "viaje", "museo", "foto", "comida", "otro".',
+    '- "kind" es uno de: "viaje", "museo", "foto", "comida", "teatro", "recital", "otro".',
     '- "start"/"end" en formato YYYY-MM-DD, dentro del viaje. Si es por el día, "end":"".',
     '- "lat"/"lon" numéricos reales del centro de la ciudad, con 4 decimales.',
     '- "photos" siempre [].',
