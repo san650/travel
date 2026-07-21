@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Travel — Padrino en España</title>
+  <meta name="description" content="Itinerario del viaje a España: 31 oct 2026 – 4 ene 2027, base en Paterna, Valencia." />
+  <meta name="theme-color" content="#C73E1D" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Travel" />
+
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+
+  <link rel="apple-touch-startup-image" href="./splash/splash-1290x2796.png"
+        media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="./splash/splash-1179x2556.png"
+        media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="./splash/splash-1284x2778.png"
+        media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="./splash/splash-1170x2532.png"
+        media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="./splash/splash-1125x2436.png"
+        media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="./splash/splash-1242x2688.png"
+        media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="./splash/splash-828x1792.png"
+        media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="./splash/splash-1242x2208.png"
+        media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="./splash/splash-750x1334.png"
+        media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+
+  <link rel="stylesheet" href="./fonts/fonts.css" />
+  <link rel="stylesheet" href="./vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="persist-banner" class="banner" role="alert" hidden>
+    <span>No pude guardar los últimos cambios en este dispositivo.</span>
+    <button type="button" id="btn-banner-export" class="btn btn--small">Exportar copia</button>
+  </div>
+
+  <header class="hdr">
+    <svg class="hdr__sun" viewBox="0 0 100 100" aria-hidden="true">
+      <g class="hdr__rays">
+        <g fill="#E8A33D">
+          <polygon points="50,2 55,20 45,20" />
+          <polygon points="50,98 55,80 45,80" />
+          <polygon points="2,50 20,45 20,55" />
+          <polygon points="98,50 80,45 80,55" />
+          <polygon points="16,16 30,26 26,30" />
+          <polygon points="84,84 70,74 74,70" />
+          <polygon points="84,16 74,30 70,26" />
+          <polygon points="16,84 26,70 30,74" />
+        </g>
+      </g>
+      <circle cx="50" cy="50" r="24" fill="#E8A33D" />
+      <circle cx="50" cy="50" r="24" fill="none" stroke="#9E2F14" stroke-width="3" />
+    </svg>
+    <div class="hdr__text">
+      <h1>Padrino en España</h1>
+      <p class="hdr__sub">31 oct 2026 → 4 ene 2027 · base <strong>Paterna</strong></p>
+    </div>
+    <div class="hdr__hist">
+      <button type="button" id="btn-undo" class="btn-hist" aria-label="Deshacer" disabled>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 5 4 9l4 4" />
+          <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H10" />
+        </svg>
+      </button>
+      <button type="button" id="btn-redo" class="btn-hist" aria-label="Rehacer" disabled>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m16 5 4 4-4 4" />
+          <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H14" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="view">
+    <section class="map-card">
+      <div id="map" aria-label="Mapa del itinerario"></div>
+      <div id="route-info" class="route-info" hidden>
+        <span class="route-info__dot" aria-hidden="true"></span>
+        <span data-slot="route-text"></span>
+      </div>
+      <p class="map-hint">Tocá una parada del mapa o una tarjeta para ver la ruta desde Paterna.</p>
+    </section>
+
+    <section class="timeline">
+      <div class="timeline__head">
+        <h2>Itinerario</h2>
+        <span id="count-stamp" class="count-stamp"></span>
+      </div>
+
+      <div id="empty-state" class="empty" hidden>
+        <p class="empty__big">El mapa está en blanco…</p>
+        <p>¡todavía! Agregá tu primera parada: una escapada a Benidorm,
+        un museo en Valencia o ese mirador para fotos al atardecer.</p>
+      </div>
+
+      <ol id="cards" class="cards"></ol>
+    </section>
+
+  </main>
+
+  <button type="button" id="fab" class="fab">＋ Nueva parada</button>
+  <button type="button" id="fab-tools" class="fab-tools" aria-label="Herramientas">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+         stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3.5" y="8" width="17" height="12" rx="2.5" />
+      <path d="M9 8V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8V8" />
+      <path d="M3.5 13h17" />
+    </svg>
+  </button>
+
+  <input type="file" id="file-import" accept="application/json,.json" hidden />
+  <input type="file" id="file-append" accept="application/json,.json" hidden />
+
+  <dialog id="dlg-tools" class="drawer" aria-labelledby="drawer-title">
+    <div class="drawer__handle" aria-hidden="true"></div>
+    <h2 id="drawer-title">Herramientas</h2>
+    <div class="drawer__list">
+      <button type="button" id="btn-gpt" class="drawer__item">
+        <span class="drawer__emoji" aria-hidden="true">🤖</span>
+        <span class="drawer__label">Planificar con ChatGPT
+          <small>Generá paradas afuera y agregalas al itinerario</small>
+        </span>
+      </button>
+      <button type="button" id="btn-export" class="drawer__item">
+        <span class="drawer__emoji" aria-hidden="true">📤</span>
+        <span class="drawer__label">Exportar JSON
+          <small>Compartí o guardá una copia de seguridad</small>
+        </span>
+      </button>
+      <button type="button" id="btn-import" class="drawer__item">
+        <span class="drawer__emoji" aria-hidden="true">📥</span>
+        <span class="drawer__label">Importar JSON
+          <small>Restaura una copia — reemplaza todo</small>
+        </span>
+      </button>
+    </div>
+  </dialog>
+
+  <template id="tpl-card">
+    <li class="card">
+      <button type="button" class="card__body" data-slot="body">
+        <span class="card__num" data-slot="num"></span>
+        <span class="card__stamp" data-slot="stamp"></span>
+        <span class="card__title" data-slot="title"></span>
+        <span class="card__city" data-slot="city"></span>
+        <span class="card__dates" data-slot="dates"></span>
+        <span class="card__days" data-slot="days"></span>
+        <span class="card__warn" data-slot="warn" hidden>
+          <svg class="warn-icon" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+            <path d="M12 3 21.3 19.2 a1.7 1.7 0 0 1 -1.5 2.5 H4.2 a1.7 1.7 0 0 1 -1.5 -2.5 Z"
+                  fill="#E8A33D" stroke="#9E2F14" stroke-width="1.8" stroke-linejoin="round" />
+            <rect x="11.05" y="9.2" width="1.9" height="5.6" rx="0.95" fill="#3A2C23" />
+            <circle cx="12" cy="17.9" r="1.25" fill="#3A2C23" />
+          </svg>
+          <span data-slot="warn-text"></span>
+        </span>
+        <span class="card__desc" data-slot="desc"></span>
+      </button>
+      <div class="card__photos" data-slot="photos" hidden></div>
+      <div class="card__actions">
+        <button type="button" class="btn btn--small" data-slot="edit">Editar</button>
+        <button type="button" class="btn btn--small btn--danger" data-slot="delete">Borrar</button>
+      </div>
+    </li>
+  </template>
+
+  <template id="tpl-photo">
+    <a class="photo" target="_blank" rel="noreferrer">
+      <img loading="lazy" referrerpolicy="no-referrer" alt="Foto del destino" />
+    </a>
+  </template>
+
+  <dialog id="dlg-form" class="dlg" aria-labelledby="dlg-form-title">
+    <form id="form-activity" novalidate>
+      <h2 id="dlg-form-title" data-slot="form-title">Nueva parada</h2>
+
+      <label class="field">
+        <span>Título</span>
+        <input name="title" type="text" required maxlength="80" placeholder="Escapada a Benidorm" />
+      </label>
+
+      <fieldset class="kinds">
+        <legend>Tipo</legend>
+        <label><input type="radio" name="kind" value="viaje" checked /><span>🧳 Viaje</span></label>
+        <label><input type="radio" name="kind" value="museo" /><span>🏛️ Museo</span></label>
+        <label><input type="radio" name="kind" value="foto" /><span>📸 Fotos</span></label>
+        <label><input type="radio" name="kind" value="comida" /><span>🥘 Comida</span></label>
+        <label><input type="radio" name="kind" value="otro" /><span>✨ Otro</span></label>
+      </fieldset>
+
+      <label class="field">
+        <span>Ciudad</span>
+        <input name="city" type="text" required list="city-list" placeholder="Benidorm" autocomplete="off" />
+      </label>
+      <datalist id="city-list"></datalist>
+
+      <div class="field-row">
+        <label class="field">
+          <span>Desde</span>
+          <input name="start" type="date" required min="2026-10-31" max="2027-01-04" />
+        </label>
+        <label class="field">
+          <span>Hasta</span>
+          <input name="end" type="date" min="2026-10-31" max="2027-01-04" />
+        </label>
+      </div>
+      <p class="field-hint">Dejá «Hasta» vacío si es por el día.</p>
+
+      <label class="field">
+        <span>Descripción</span>
+        <textarea name="desc" rows="3" maxlength="500" placeholder="Playa, casco antiguo, mirador…"></textarea>
+      </label>
+
+      <label class="field">
+        <span>Fotos (una URL por línea)</span>
+        <textarea name="photos" rows="3" placeholder="https://…jpg"></textarea>
+      </label>
+
+      <p id="form-error" class="form-error" role="alert" hidden></p>
+
+      <div class="dlg__actions">
+        <button type="button" id="btn-form-cancel" class="btn">Cancelar</button>
+        <button type="submit" class="btn btn--primary" data-slot="form-submit">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-gpt" class="dlg" aria-labelledby="dlg-gpt-title">
+    <h2 id="dlg-gpt-title">Planificar con ChatGPT</h2>
+    <ol class="gpt-steps">
+      <li>Copiá el prompt y pegalo en ChatGPT.</li>
+      <li>Armá el plan charlando; al final pedile «exportar».</li>
+      <li>Guardá la respuesta como archivo <strong>.json</strong> e importalo acá.
+      Las paradas <strong>se agregan</strong> a las que ya tenés; si hay choques de
+      fechas se marcan con ⚠️.</li>
+    </ol>
+    <textarea id="gpt-prompt" class="gpt-prompt" readonly rows="8" aria-label="Prompt para ChatGPT"></textarea>
+    <div class="dlg__actions">
+      <button type="button" id="btn-gpt-cancel" class="btn">Cerrar</button>
+      <button type="button" id="btn-gpt-copy" class="btn">Copiar prompt</button>
+      <button type="button" id="btn-gpt-import" class="btn btn--primary">Importar JSON…</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-confirm" class="dlg dlg--confirm" aria-labelledby="confirm-title">
+    <h2 id="confirm-title"></h2>
+    <p id="confirm-body"></p>
+    <div class="dlg__actions">
+      <button type="button" data-confirm-cancel class="btn">Cancelar</button>
+      <button type="button" data-confirm-accept class="btn btn--danger">Borrar</button>
+    </div>
+  </dialog>
+
+  <script src="./vendor/leaflet/leaflet.js" defer></script>
+  <script type="module" src="./app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+    }
+  </script>
+</body>
+</html>
