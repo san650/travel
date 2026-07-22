@@ -29,11 +29,13 @@ const localTravel = (travelId) =>
 
 // ---------- formato remoto ----------
 
+const freshTombstone = (a) =>
+  !a.deletedAt || Date.now() - Date.parse(a.deletedAt) < TOMBSTONE_TTL_MS;
+
 const gcTombstones = (travel) => ({
   ...travel,
-  activities: travel.activities.filter(
-    (a) => !a.deletedAt || Date.now() - Date.parse(a.deletedAt) < TOMBSTONE_TTL_MS,
-  ),
+  activities: travel.activities.filter(freshTombstone),
+  attachments: travel.attachments.filter(freshTombstone),
 });
 
 const envelope = (travel, revision) => ({
@@ -61,12 +63,14 @@ export const validateRemote = (data, expectedTravelId) => {
   if (!m.base || typeof m.base.lat !== 'number' || typeof m.base.lon !== 'number') throw bad('base');
   if (!Array.isArray(t.activities) || t.activities.some((a) => !a || typeof a.id !== 'string')) throw bad('activities');
   if (!Array.isArray(t.attachments)) t.attachments = [];
+  if (t.attachments.some((a) => !a || typeof a.id !== 'string')) throw bad('attachments');
   return { revision: data.revision, travel: t };
 };
 
 // ---------- replay de comandos pendientes ----------
 
-const isRemoveCmd = (type) => type === 'REMOVE_ACTIVITY' || type === 'REMOVE_ACTIVITIES';
+const isRemoveCmd = (type) =>
+  type === 'REMOVE_ACTIVITY' || type === 'REMOVE_ACTIVITIES' || type === 'REMOVE_ATTACHMENT';
 
 const cmdLabel = (cmd) => {
   const p = cmd.payload;
@@ -74,6 +78,8 @@ const cmdLabel = (cmd) => {
     case 'UPDATE_ACTIVITY': return p.to.title ?? p.id;
     case 'REMOVE_ACTIVITY': return p.activity.title ?? p.activity.id;
     case 'REMOVE_ACTIVITIES': return `${p.activities.length} paradas`;
+    case 'ADD_ATTACHMENT':
+    case 'REMOVE_ATTACHMENT': return p.attachment.name ?? p.attachment.id;
     case 'SET_ACTIVITIES': return 'todo el itinerario';
     case 'UPDATE_VACATION_META': return 'datos del viaje';
     default: return cmd.type;
@@ -87,7 +93,8 @@ const findClashes = (travel, cmd) => {
       if ((travel.meta.rev ?? 0) !== t.baseRev) clashes.push({ target: t, current: travel.meta });
       continue;
     }
-    const current = travel.activities.find((a) => a.id === t.id) ?? null;
+    const list = t.col === 'attachments' ? travel.attachments : travel.activities;
+    const current = list.find((a) => a.id === t.id) ?? null;
     if (!current) {
       // Borrado duro remoto (GC de tombstones): borrar algo que ya no está
       // da el mismo resultado — no es conflicto para comandos de borrado.
@@ -145,6 +152,7 @@ const replay = (remoteTravel, pending, resolutions) => {
 // ---------- adjuntos pendientes de subir ----------
 
 const uploadPendingAttachments = async (rec, travel) => {
+  const uploaded = {};
   for (const att of travel.attachments) {
     if (att.driveFileId || att.deletedAt) continue;
     const blob = await getAttachmentBlob(att.id);
@@ -156,15 +164,17 @@ const uploadPendingAttachments = async (rec, travel) => {
       mimeType: att.mimeType,
     });
     att.driveFileId = file.id;
+    uploaded[att.id] = file.id;
   }
+  return uploaded;
 };
 
 // ---------- operaciones ----------
 
 const uploadState = async (rec, travel, revision) => {
-  await uploadPendingAttachments(rec, travel);
+  const uploadedIds = await uploadPendingAttachments(rec, travel);
   const metadata = await drive.updateJsonFile({ fileId: rec.driveFileId, data: envelope(travel, revision) });
-  return { metadata, travel };
+  return { metadata, travel, uploadedIds };
 };
 
 const consume = (travelId, rec, count, revision, driveVersion) => {
@@ -195,6 +205,9 @@ export const shareTravel = async (travelId) => {
     baseDriveVersion: String(file.version),
     lastSyncAt: nowIso(),
     pending: [],
+    // Con writersCanShare:false solo el dueño puede invitar; la UI de
+    // compartir se esconde para los demás. Drive lo re-verifica igual.
+    canShare: true,
   };
   store.setSyncRecord(travelId, rec);
   return rec;
@@ -219,6 +232,12 @@ export const syncTravel = async (travelId, { resolutions = null, _retried = fals
 
   const head = await drive.getMetadata(rec.driveFileId);
   if (head.trashed) throw new SyncError('NO_ACCESS', 'El viaje compartido ya no existe en Drive.');
+  // Refrescar el flag de dueño (capabilities es por usuario).
+  const canShare = Boolean(head.capabilities?.canShare);
+  if (rec.canShare !== canShare) {
+    rec.canShare = canShare;
+    store.setSyncRecord(travelId, rec);
+  }
   const remoteChanged = String(head.version) !== String(rec.baseDriveVersion);
   const hasNewAttachments = local.attachments.some((a) => !a.driveFileId && !a.deletedAt);
 
@@ -235,8 +254,11 @@ export const syncTravel = async (travelId, { resolutions = null, _retried = fals
   if (!remoteChanged) {
     const travel = structuredClone(local);
     const revision = (rec.baseRevision ?? 0) + 1;
-    const { metadata } = await uploadState(rec, travel, revision);
+    const { metadata, uploadedIds } = await uploadState(rec, travel, revision);
     consume(travelId, rec, pendingCount, revision, metadata.version);
+    // El clon subido tiene los driveFileId nuevos; reflejarlos en el estado
+    // local sin tocar el historial de deshacer.
+    if (Object.keys(uploadedIds).length) store.patchAttachmentDriveIds(travelId, uploadedIds);
     return { status: 'pushed' };
   }
 
@@ -274,6 +296,7 @@ export const joinTravel = async (fileId) => {
     baseDriveVersion: String(metadata.version),
     lastSyncAt: nowIso(),
     pending: [],
+    canShare: Boolean(metadata.capabilities?.canShare),
   };
   store.adoptTravel(remote.travel, rec);
   return remote.travel;

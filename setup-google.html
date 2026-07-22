@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Travel · Conectar con Google, paso a paso</title>
+  <meta name="description" content="Guía para obtener el Client ID, la API key y el número de proyecto en Google Cloud Console." />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="stylesheet" href="./fonts/fonts.css" />
+  <style>
+    :root {
+      --paper: #F6EDDA;
+      --cream: #FBF6EA;
+      --ink: #3A2C23;
+      --ink-soft: #6E5B4E;
+      --terra: #C73E1D;
+      --terra-dark: #9E2F14;
+      --amber: #E8A33D;
+      --sea: #20668C;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(232, 163, 61, 0.16), transparent 42%),
+        var(--paper);
+      color: var(--ink);
+      font-family: 'Alegreya Sans', system-ui, sans-serif;
+      font-size: 1.0625rem;
+      line-height: 1.55;
+      padding: 1.2rem 1rem 4rem;
+    }
+    main { max-width: 640px; margin: 0 auto; }
+    h1, h2 {
+      font-family: 'Alegreya', Georgia, serif;
+      font-weight: 800;
+      line-height: 1.15;
+      color: var(--terra);
+      margin: 0;
+    }
+    h1 { font-size: 1.7rem; margin-bottom: 0.3rem; }
+    .lead { color: var(--ink-soft); margin: 0.2rem 0 1.4rem; }
+    a { color: var(--sea); font-weight: 700; }
+    .step {
+      background: var(--cream);
+      border: 2px solid var(--ink);
+      border-radius: 14px;
+      box-shadow: 0 2px 0 rgba(58, 44, 35, 0.18);
+      padding: 0.9rem 1.1rem;
+      margin: 0 0 0.9rem;
+    }
+    .step h2 {
+      font-size: 1.15rem;
+      color: var(--ink);
+      display: flex;
+      align-items: baseline;
+      gap: 0.55rem;
+      margin-bottom: 0.35rem;
+    }
+    .step h2 .n {
+      flex: none;
+      font-family: 'Alegreya Sans', sans-serif;
+      font-size: 0.9rem;
+      background: var(--terra);
+      color: var(--cream);
+      border-radius: 999px;
+      min-width: 1.6rem;
+      height: 1.6rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transform: translateY(-0.1rem);
+    }
+    .step p, .step ul { margin: 0.3rem 0; }
+    .step ul { padding-left: 1.2rem; }
+    .path {
+      display: inline-block;
+      background: rgba(58, 44, 35, 0.08);
+      border-radius: 6px;
+      padding: 0 0.35rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    code {
+      background: rgba(58, 44, 35, 0.08);
+      border-radius: 6px;
+      padding: 0.05rem 0.35rem;
+      font-size: 0.92em;
+      word-break: break-all;
+    }
+    .copy {
+      display: block;
+      margin-top: 0.35rem;
+      background: #16211C;
+      color: #C9E8D4;
+      border-radius: 8px;
+      padding: 0.45rem 0.6rem;
+      font-family: ui-monospace, monospace;
+      font-size: 0.85rem;
+      word-break: break-all;
+    }
+    .note {
+      border-left: 4px solid var(--amber);
+      background: rgba(232, 163, 61, 0.14);
+      border-radius: 0 10px 10px 0;
+      padding: 0.5rem 0.8rem;
+      margin: 0.5rem 0;
+      font-size: 0.95rem;
+    }
+    .result { color: var(--terra-dark); font-weight: 700; }
+    footer { color: var(--ink-soft); font-size: 0.9rem; margin-top: 1.6rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Conectar con Google, paso a paso</h1>
+    <p class="lead">Para compartir un viaje, la app necesita tres valores de
+    Google Cloud. Se consiguen gratis, una sola vez, y son públicos (no son
+    contraseñas): <strong>Client ID</strong>, <strong>API key</strong> y
+    <strong>número de proyecto</strong>. Guía vigente para la consola de
+    2026, donde la configuración vive en «Google Auth Platform».</p>
+
+    <section class="step">
+      <h2><span class="n">1</span>Crear el proyecto</h2>
+      <p>Entrá a <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a>
+      con tu cuenta de Google. Arriba a la izquierda, tocá el selector de
+      proyectos → <span class="path">Proyecto nuevo</span>. Nombre sugerido:
+      <code>travel-42uy</code>. Crealo y asegurate de que quede seleccionado.</p>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">2</span>Anotar el número de proyecto</h2>
+      <p>En el panel de inicio (<span class="path">Descripción general de Cloud → Panel</span>),
+      la tarjeta <span class="path">Información del proyecto</span> muestra
+      <strong>Número del proyecto</strong> (solo dígitos, p. ej.
+      <code>512874063921</code>). También está en
+      <span class="path">☰ → IAM y administración → Configuración</span>.</p>
+      <p class="result">→ Este es el «Número de proyecto» que pide la app.</p>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">3</span>Habilitar las dos APIs</h2>
+      <p><span class="path">☰ → APIs y servicios → Biblioteca</span>. Buscá y
+      habilitá, una por una:</p>
+      <ul>
+        <li><strong>Google Drive API</strong></li>
+        <li><strong>Google Picker API</strong></li>
+      </ul>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">4</span>Configurar Google Auth Platform</h2>
+      <p><span class="path">☰ → Google Auth Platform</span> (si no aparece,
+      buscá «Google Auth Platform» en la barra de búsqueda de la consola).
+      La primera vez muestra «Google Auth Platform no está configurado» →
+      tocá <span class="path">Comenzar</span>. El asistente pide:</p>
+      <ul>
+        <li><strong>Información de la app</strong>: nombre (p. ej. «Travel») y tu email de asistencia.</li>
+        <li><strong>Público</strong> (Audience): elegí <strong>Externo</strong>. No se puede cambiar después.</li>
+        <li><strong>Información de contacto</strong>: tu email.</li>
+        <li>Aceptá la política y tocá <span class="path">Crear</span>.</li>
+      </ul>
+      <div class="note">La app queda en modo <strong>Prueba</strong> (Testing):
+      solo las cuentas que agregues como «test users» van a poder conectarse.
+      Para un grupo de amigos alcanza y no hace falta el proceso de
+      verificación de Google (hasta 100 usuarios).</div>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">5</span>Agregar a tus amigos como usuarios de prueba</h2>
+      <p>Dentro de Google Auth Platform, andá a la página
+      <span class="path">Público</span> (Audience). En la sección
+      <span class="path">Usuarios de prueba</span> tocá
+      <span class="path">+ Add users</span> y agregá tu email y el de cada
+      persona que vayas a invitar a un viaje.</p>
+      <div class="note">Si alguien ve «Error 403: access_denied» al conectar,
+      es esto: su email no está en la lista de usuarios de prueba.</div>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">6</span>Crear el Client ID</h2>
+      <p>Dentro de Google Auth Platform, página
+      <span class="path">Clientes</span> (Clients) →
+      <span class="path">+ Crear cliente</span>:</p>
+      <ul>
+        <li><strong>Tipo de aplicación</strong>: Aplicación web.</li>
+        <li><strong>Nombre</strong>: «Travel PWA» (o el que quieras).</li>
+        <li><strong>Orígenes de JavaScript autorizados</strong> — agregá los dos:
+          <span class="copy">https://travel.42.uy</span>
+          <span class="copy">http://localhost:8765</span>
+        </li>
+        <li><strong>URIs de redireccionamiento</strong>: dejar vacío (no se usa).</li>
+      </ul>
+      <p>Tocá <span class="path">Crear</span> y copiá el ID de cliente.</p>
+      <p class="result">→ Este es el «Client ID»: termina en
+      <code>.apps.googleusercontent.com</code>.</p>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">7</span>Crear la API key</h2>
+      <p><span class="path">☰ → APIs y servicios → Credenciales</span> →
+      <span class="path">+ Crear credenciales → Clave de API</span>. Copiá la
+      clave (empieza con <code>AIza</code>).</p>
+      <p>Recomendado: tocá la clave para editarla y restringila —
+      <span class="path">Restricciones de aplicaciones → Sitios web</span>
+      con los mismos dos orígenes del paso 6, y
+      <span class="path">Restricciones de API → Google Picker API</span>.</p>
+      <p class="result">→ Esta es la «API key».</p>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">8</span>Pegar los tres valores en la app</h2>
+      <p>Volvé a la app → Herramientas → <span class="path">Compartir viaje</span>.
+      La primera vez, el formulario «Conectar con Google» pide los tres
+      valores; si ya lo cerraste, está en
+      <span class="path">Configuración de Google…</span> al pie del diálogo.
+      Se guardan solo en tu dispositivo.</p>
+      <div class="note">Al conectar por primera vez Google muestra
+      «Google no verificó esta app»: es lo esperado en modo Prueba. Tocá
+      <em>Continuar</em>. La autorización real la controlan los permisos de la
+      carpeta compartida en Drive.</div>
+    </section>
+
+    <footer>Los tres valores son identificadores públicos. La app usa el
+    permiso <code>drive.file</code>: solo ve las carpetas y archivos que ella
+    misma crea o que vos elegís explícitamente.</footer>
+  </main>
+</body>
+</html>

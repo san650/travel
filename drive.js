@@ -170,11 +170,14 @@ const multipartBody = (metadata, content, contentType) => {
 
 const FILE_FIELDS = 'id,name,mimeType,version,modifiedTime,capabilities,trashed,parents';
 
+// writersCanShare: false en todo lo que crea la app: los escritores editan
+// pero solo el dueño puede invitar o cambiar permisos (equivale a destildar
+// «Los editores pueden cambiar permisos y compartir» en la UI de Drive).
 export const createFolder = async (name) => {
   const res = await request(`${API}/files?fields=${encodeURIComponent(FILE_FIELDS)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, mimeType: FOLDER_MIME }),
+    body: JSON.stringify({ name, mimeType: FOLDER_MIME, writersCanShare: false }),
   });
   return res.json();
 };
@@ -185,6 +188,7 @@ export const createJsonFile = async ({ name, parentId, data }) => {
     mimeType: 'application/json',
     parents: parentId ? [parentId] : undefined,
     appProperties: { application: 'travel-42uy' },
+    writersCanShare: false,
   };
   const { body, contentType } = multipartBody(metadata, JSON.stringify(data, null, 2), 'application/json; charset=UTF-8');
   const res = await request(
@@ -236,7 +240,7 @@ export const listChildren = async (folderId, { name } = {}) => {
 // ---------- adjuntos ----------
 
 export const uploadFile = async ({ name, parentId, blob, mimeType }) => {
-  const metadata = { name, parents: parentId ? [parentId] : undefined };
+  const metadata = { name, parents: parentId ? [parentId] : undefined, writersCanShare: false };
   const { body, contentType } = multipartBody(metadata, blob, mimeType || blob.type || 'application/octet-stream');
   const res = await request(
     `${UPLOAD_API}/files?uploadType=multipart&fields=${encodeURIComponent(FILE_FIELDS)}`,

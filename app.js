@@ -3,7 +3,7 @@ import { makeCommand, alive } from './commands.js';
 import { CITIES, findCity } from './cities.js';
 import * as tripMap from './map.js';
 import { askConfirm } from './confirm.js';
-import { initShare } from './share.js';
+import { initShare, attachFile, openAttachment, removeAttachment } from './share.js';
 
 const KINDS = {
   viaje: 'Viaje',
@@ -34,6 +34,7 @@ const els = {
   formCancel: $('btn-form-cancel'),
   fileImport: $('file-import'),
   fileAppend: $('file-append'),
+  fileAttach: $('file-attach'),
   dlgTools: $('dlg-tools'),
   fabTools: $('fab-tools'),
   dlgGpt: $('dlg-gpt'),
@@ -331,6 +332,7 @@ els.form.addEventListener('submit', (e) => {
 // ---------- render ----------
 
 const animated = new Set();
+let attachTargetId = null;
 
 const rangesOverlap = (a, b) =>
   a.start <= (b.end || b.start) && b.start <= (a.end || a.start);
@@ -384,6 +386,29 @@ const renderCards = () => {
         photosBox.appendChild(ph);
       }
     }
+
+    // Adjuntos (entradas, PDFs): solo en viajes compartidos (los archivos
+    // viven en la carpeta sincronizada). Los ya existentes se ven siempre.
+    const shared = store.isShared(trip().id);
+    const attBox = slot(li, 'attachments');
+    const atts = alive(trip().attachments).filter((x) => x.activityId === act.id);
+    if (atts.length) {
+      attBox.hidden = false;
+      for (const att of atts) {
+        const chip = cloneTpl('tpl-attachment');
+        slot(chip, 'att-name').textContent = att.name;
+        if (!att.driveFileId) chip.classList.add('attachment--pending');
+        slot(chip, 'att-open').onclick = () => openAttachment(att);
+        slot(chip, 'att-delete').onclick = () => removeAttachment(att);
+        attBox.appendChild(chip);
+      }
+    }
+    const attachBtn = slot(li, 'attach');
+    attachBtn.hidden = !shared;
+    attachBtn.onclick = () => {
+      attachTargetId = act.id;
+      els.fileAttach.click();
+    };
 
     const head = slot(li, 'head');
     head.onclick = () => select(act);
@@ -841,6 +866,12 @@ const start = async () => {
     const file = els.fileAppend.files?.[0];
     els.fileAppend.value = '';
     if (file) importAppend(file);
+  };
+  els.fileAttach.onchange = () => {
+    const file = els.fileAttach.files?.[0];
+    els.fileAttach.value = '';
+    if (file && attachTargetId) attachFile(attachTargetId, file);
+    attachTargetId = null;
   };
 
   window.addEventListener('keydown', onKeyDown);

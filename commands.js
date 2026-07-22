@@ -124,6 +124,28 @@ export const COMMANDS = {
     isNoOp: (p) => p.activities.length === 0 && p.prev.length === 0,
     targets: (p) => p.prev.map((a) => ({ id: a.id, baseRev: a.rev ?? 0 })),
   },
+  // Adjuntos: la entidad (metadata) vive en travel.attachments; el binario
+  // local en IndexedDB (store 'attachments') y el remoto como archivo suelto
+  // en la carpeta del viaje. driveFileId null = todavía no subido.
+  ADD_ATTACHMENT: {
+    apply: (v, p, ctx) => { v.attachments = upsert(v.attachments, stampNew(p.attachment, ctx)); },
+    revert: (v, p) => { v.attachments = v.attachments.filter((a) => a.id !== p.attachment.id); },
+    coalesceKey: (p) => p.attachment.id,
+    isNoOp: () => false,
+    targets: () => [],
+  },
+  REMOVE_ATTACHMENT: {
+    apply: (v, p, ctx) => {
+      v.attachments = v.attachments.map((a) =>
+        a.id === p.attachment.id ? tombstone(a, ctx) : a);
+    },
+    revert: (v, p) => {
+      v.attachments = v.attachments.map((a) => (a.id === p.attachment.id ? p.attachment : a));
+    },
+    coalesceKey: (p) => p.attachment.id,
+    isNoOp: () => false,
+    targets: (p) => [{ col: 'attachments', id: p.attachment.id, baseRev: p.attachment.rev ?? 0 }],
+  },
   UPDATE_VACATION_META: {
     apply: (v, p, ctx) => { v.meta = stampNext(p.to, p.from.rev, ctx); },
     revert: (v, p) => { v.meta = p.from; },
@@ -148,6 +170,10 @@ export const invert = (cmd) => {
       return makeCommand('REMOVE_ACTIVITIES', { activities: p.activities.map((a) => stampNew(a, ctx)) });
     case 'REMOVE_ACTIVITY':
       return makeCommand('ADD_ACTIVITY', { activity: p.activity });
+    case 'ADD_ATTACHMENT':
+      return makeCommand('REMOVE_ATTACHMENT', { attachment: stampNew(p.attachment, ctx) });
+    case 'REMOVE_ATTACHMENT':
+      return makeCommand('ADD_ATTACHMENT', { attachment: p.attachment });
     case 'REMOVE_ACTIVITIES':
       return makeCommand('ADD_ACTIVITIES', { activities: p.activities });
     case 'UPDATE_ACTIVITY':

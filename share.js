@@ -7,6 +7,8 @@ import { store } from './store.js';
 import * as sync from './sync.js';
 import * as drive from './drive.js';
 import { askConfirm } from './confirm.js';
+import { makeCommand } from './commands.js';
+import { getAttachmentBlob, putAttachmentBlob } from './db.js';
 
 const $ = (id) => document.getElementById(id);
 const cloneTpl = (id) => $(id).content.firstElementChild.cloneNode(true);
@@ -32,7 +34,7 @@ const updateChip = () => {
     return;
   }
   els.chip.disabled = false;
-  const n = store.pendingCount(v.id) + v.attachments.filter((a) => !a.driveFileId && !a.deletedAt).length;
+  const n = store.pendingCount(v.id);
   els.chip.classList.toggle('sync-chip--dirty', n > 0);
   els.chip.textContent = n > 0 ? (n === 1 ? '1 cambio sin sincronizar' : `${n} cambios sin sincronizar`) : 'Sincronizado';
 };
@@ -200,8 +202,19 @@ export const runSync = async () => {
 
 // ---------- diálogo de compartir ----------
 
-const inviteUrl = (rec) =>
-  `${location.origin}${location.pathname}?join=${rec.driveFileId}`;
+// El enlace lleva el fileId (una dirección, no una llave: Drive valida los
+// permisos de la cuenta que lo abre) más la config pública de la app
+// (client id / api key / nº de proyecto), para que el invitado no tenga que
+// configurar nada. Son identificadores públicos, no secretos.
+const inviteUrl = (rec) => {
+  const cfg = drive.getConfig();
+  const url = new URL(location.pathname, location.origin);
+  url.searchParams.set('join', rec.driveFileId);
+  if (cfg.clientId) url.searchParams.set('c', cfg.clientId);
+  if (cfg.apiKey) url.searchParams.set('k', cfg.apiKey);
+  if (cfg.appId) url.searchParams.set('a', cfg.appId);
+  return url.toString();
+};
 
 const showShareError = (err) => {
   console.error(err);
@@ -211,7 +224,7 @@ const showShareError = (err) => {
   els.shareError.hidden = false;
 };
 
-const renderMembers = async (rec) => {
+const renderMembers = async (rec, canShare) => {
   els.memberList.replaceChildren();
   try {
     const perms = await drive.listPermissions(rec.driveFolderId ?? rec.driveFileId);
@@ -221,7 +234,7 @@ const renderMembers = async (rec) => {
       slot(li, 'role').textContent =
         p.role === 'owner' ? 'dueño' : p.role === 'writer' ? 'edita' : 'mira';
       const btn = slot(li, 'remove');
-      if (p.role === 'owner') btn.hidden = true;
+      if (p.role === 'owner' || !canShare) btn.hidden = true;
       btn.onclick = async () => {
         const ok = await askConfirm({
           title: `¿Quitar a «${p.displayName || p.emailAddress}»?`,
@@ -252,12 +265,17 @@ const renderShareDialog = () => {
   $('share-off').hidden = Boolean(rec);
   $('share-on').hidden = !rec;
   if (!rec) return;
-  $('share-link').value = inviteUrl(rec);
+  // Con writersCanShare:false solo el dueño puede invitar: sin la capacidad,
+  // el link y el formulario serían botones que solo pueden fallar.
+  const canShare = rec.canShare !== false;
+  $('share-owner').hidden = !canShare;
+  $('share-member-hint').hidden = canShare;
+  if (canShare) $('share-link').value = inviteUrl(rec);
   const when = rec.lastSyncAt
     ? new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(rec.lastSyncAt))
     : 'nunca';
   $('share-status').textContent = `Última sincronización: ${when}.`;
-  renderMembers(rec);
+  renderMembers(rec, canShare);
 };
 
 const openShareDialog = () => {
@@ -336,11 +354,92 @@ const stopSharing = async () => {
   updateChip();
 };
 
+// ---------- adjuntos ----------
+// Metadata en travel.attachments (comandos, sincroniza); binario local en
+// IndexedDB desde el momento de adjuntar; sube recién al sincronizar. Otros
+// miembros lo descargan la primera vez que lo abren y queda cacheado.
+
+const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+
+const notice = (title, body) => askConfirm({ title, body, acceptLabel: 'OK' });
+
+export const attachFile = async (activityId, file) => {
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    notice('Archivo muy grande', 'Hasta 15 MB por adjunto.');
+    return;
+  }
+  const id = crypto.randomUUID();
+  try {
+    await putAttachmentBlob(id, file);
+  } catch (err) {
+    console.error('attachment store failed', err);
+    notice('No se pudo guardar', 'No hay lugar para guardar el adjunto en este dispositivo.');
+    return;
+  }
+  store.dispatch(makeCommand('ADD_ATTACHMENT', {
+    attachment: {
+      id,
+      activityId,
+      name: file.name || 'adjunto',
+      mimeType: file.type || 'application/octet-stream',
+      size: file.size,
+      driveFileId: null,
+    },
+  }));
+};
+
+export const openAttachment = async (att) => {
+  let blob = null;
+  try { blob = await getAttachmentBlob(att.id); } catch {}
+  if (!blob) {
+    if (!att.driveFileId) {
+      notice('Todavía no sincronizado', 'Quien lo adjuntó tiene que sincronizar antes de que puedas verlo.');
+      return;
+    }
+    try {
+      flash('Descargando…');
+      blob = await drive.downloadFile(att.driveFileId);
+      await putAttachmentBlob(att.id, blob).catch(() => {});
+      updateChip();
+    } catch (err) {
+      console.error('attachment download failed', err);
+      notice(
+        err.code === 'OFFLINE' ? 'Sin conexión' : 'No se pudo descargar',
+        err.code === 'OFFLINE'
+          ? 'Este adjunto va a estar disponible sin conexión después de abrirlo una vez.'
+          : 'Probá sincronizar y abrirlo de nuevo.',
+      );
+      return;
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  if ((att.mimeType || '').startsWith('image/')) {
+    $('lightbox-img').src = url;
+    $('dlg-photo').showModal();
+  } else {
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.click();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+};
+
+export const removeAttachment = async (att) => {
+  const ok = await askConfirm({
+    title: `¿Borrar «${att.name}»?`,
+    body: 'Podés deshacerlo con ↶.',
+  });
+  if (!ok) return;
+  store.dispatch(makeCommand('REMOVE_ATTACHMENT', { attachment: att }));
+};
+
 // ---------- unirse por invitación ----------
 
 const stripJoinParam = () => {
   const url = new URL(location.href);
-  url.searchParams.delete('join');
+  for (const p of ['join', 'c', 'k', 'a']) url.searchParams.delete(p);
   history.replaceState(null, '', url);
 };
 
@@ -391,10 +490,24 @@ const joinGo = async () => {
   }
 };
 
-const handleJoinParam = () => {
-  const id = new URLSearchParams(location.search).get('join');
+const handleJoinParam = async () => {
+  const params = new URLSearchParams(location.search);
+  const id = params.get('join');
   if (!id) return;
   if (!sync.validInviteFileId(id)) { stripJoinParam(); return; }
+  // Config pública embebida en la invitación: se adopta solo si este
+  // dispositivo todavía no tiene una propia.
+  const linkClientId = params.get('c');
+  if (linkClientId) {
+    await drive.loadConfig();
+    if (!drive.isConfigured() && linkClientId.endsWith('.apps.googleusercontent.com')) {
+      await drive.setConfig({
+        clientId: linkClientId,
+        apiKey: params.get('k') ?? '',
+        appId: params.get('a') ?? '',
+      });
+    }
+  }
   joinFileId = id;
   joinMode = 'direct';
   $('join-picker').hidden = true;
@@ -448,5 +561,6 @@ export const initShare = () => {
 
   store.subscribe(updateChip);
   updateChip();
+  drive.loadConfig();
   handleJoinParam();
 };

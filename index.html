@@ -98,6 +98,9 @@
       <path d="M6 9.8V19a1.2 1.2 0 0 0 1.2 1.2h9.6A1.2 1.2 0 0 0 18 19V9.8" />
       <path d="M10.3 20.2v-5h3.4v5" />
     </symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 12.4 12.7 19.7a5 5 0 0 1-7.1-7.1l8.2-8.2a3.4 3.4 0 0 1 4.8 4.8l-8.1 8.1a1.8 1.8 0 0 1-2.5-2.5l7.3-7.3" />
+    </symbol>
     <symbol id="i-people" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="9" cy="8.5" r="3.2" />
       <path d="M3.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
@@ -207,6 +210,7 @@
 
   <input type="file" id="file-import" accept="application/json,.json" hidden />
   <input type="file" id="file-append" accept="application/json,.json" hidden />
+  <input type="file" id="file-attach" accept="image/*,application/pdf,.pdf" hidden />
 
   <dialog id="dlg-tools" class="drawer" aria-labelledby="drawer-title">
     <div class="drawer__handle" aria-hidden="true"></div>
@@ -283,8 +287,13 @@
           </span>
           <span class="card__desc" data-slot="desc"></span>
           <div class="card__photos" data-slot="photos" hidden></div>
+          <div class="card__atts" data-slot="attachments" hidden></div>
           <div class="card__actions">
             <button type="button" class="btn btn--small" data-slot="edit">Editar</button>
+            <button type="button" class="btn btn--small" data-slot="attach" hidden>
+              <svg width="14" height="14" aria-hidden="true"><use href="#i-clip" /></svg>
+              Adjuntar
+            </button>
             <button type="button" class="btn btn--small btn--danger" data-slot="delete">Borrar</button>
           </div>
         </div>
@@ -296,6 +305,20 @@
     <button type="button" class="photo">
       <img loading="lazy" referrerpolicy="no-referrer" alt="Foto del destino" />
     </button>
+  </template>
+
+  <!-- data-slot con prefijo att-: el chip vive dentro de la card y sus slots
+       no deben colisionar con los de tpl-card (slot() busca en todo el li) -->
+  <template id="tpl-attachment">
+    <span class="attachment">
+      <button type="button" class="attachment__open" data-slot="att-open">
+        <svg width="14" height="14" aria-hidden="true"><use href="#i-clip" /></svg>
+        <span class="attachment__name" data-slot="att-name"></span>
+      </button>
+      <button type="button" class="attachment__del" data-slot="att-delete" aria-label="Borrar adjunto">
+        <svg width="13" height="13" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </span>
   </template>
 
   <dialog id="dlg-form" class="dlg dlg--full" aria-labelledby="dlg-form-title">
@@ -453,19 +476,23 @@
     </section>
     <section id="share-on" hidden>
       <p id="share-status" class="dlg-sub"></p>
-      <div class="share-invite">
-        <input id="share-link" type="text" readonly aria-label="Enlace de invitación" />
-        <button type="button" id="btn-share-copy" class="btn btn--small">Copiar</button>
+      <div id="share-owner">
+        <div class="share-invite">
+          <input id="share-link" type="text" readonly aria-label="Enlace de invitación" />
+          <button type="button" id="btn-share-copy" class="btn btn--small">Copiar</button>
+        </div>
+        <p class="field-hint">Invitá por email para dar permiso y pasales el enlace.</p>
+        <form id="form-member" class="share-add">
+          <input name="email" type="email" required placeholder="amiga@gmail.com" aria-label="Email de tu amigo" />
+          <select name="role" aria-label="Permiso">
+            <option value="writer">Puede editar</option>
+            <option value="reader">Solo mirar</option>
+          </select>
+          <button type="submit" class="btn btn--small btn--primary">Invitar</button>
+        </form>
       </div>
-      <p class="field-hint">Invitá por email para dar permiso y pasales el enlace.</p>
-      <form id="form-member" class="share-add">
-        <input name="email" type="email" required placeholder="amiga@gmail.com" aria-label="Email de tu amigo" />
-        <select name="role" aria-label="Permiso">
-          <option value="writer">Puede editar</option>
-          <option value="reader">Solo mirar</option>
-        </select>
-        <button type="submit" class="btn btn--small btn--primary">Invitar</button>
-      </form>
+      <p id="share-member-hint" class="field-hint" hidden>Solo quien compartió
+      el viaje puede invitar gente o cambiar permisos.</p>
       <ul id="member-list" class="member-list"></ul>
       <div class="dlg__actions">
         <button type="button" id="btn-share-stop" class="btn btn--danger btn--small">Dejar de sincronizar</button>
@@ -499,17 +526,10 @@
       <p class="field-hint">API key y número de proyecto solo hacen falta para
       unirse a un viaje eligiendo la carpeta con el selector; podés dejarlos
       vacíos y cargarlos después.</p>
-      <details class="setup-help">
-        <summary>¿De dónde saco esto?</summary>
-        <ol>
-          <li>En <strong>console.cloud.google.com</strong>, creá un proyecto.</li>
-          <li>Biblioteca de APIs: habilitá <strong>Google Drive API</strong> y <strong>Google Picker API</strong>.</li>
-          <li>Pantalla de consentimiento OAuth: tipo Externo, estado Testing; agregá tu email y el de tus amigos como test users.</li>
-          <li>Credenciales → ID de cliente OAuth (Aplicación web), con este sitio como origen autorizado → <strong>Client ID</strong>.</li>
-          <li>Credenciales → Clave de API → <strong>API key</strong>.</li>
-          <li>Configuración del proyecto → <strong>Número del proyecto</strong>.</li>
-        </ol>
-      </details>
+      <p class="setup-help">
+        <a href="./setup-google.html" target="_blank" rel="noopener">¿De dónde
+        saco estos valores? Guía paso a paso&nbsp;→</a>
+      </p>
       <p id="setup-error" class="form-error" role="alert" hidden></p>
       <div class="dlg__actions">
         <button type="button" id="btn-setup-cancel" class="btn">Cancelar</button>

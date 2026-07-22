@@ -1481,22 +1481,59 @@ button:focus-visible, a:focus-visible {
 
 .setup-help {
   margin: 0.5rem 0 0.2rem;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
+}
+
+.setup-help a { font-weight: 700; }
+
+/* ---------- adjuntos ---------- */
+
+.card__atts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.attachment {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1.5px solid rgba(58, 44, 35, 0.3);
+  border-radius: 999px;
+  background: var(--cream);
+  overflow: hidden;
+}
+
+.attachment--pending { border-style: dashed; }
+
+.attachment__open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 0;
+  background: none;
+  min-height: 34px;
+  padding: 0 0.2rem 0 0.65rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.attachment__name {
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment__del {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: none;
+  min-height: 34px;
+  padding: 0 0.55rem 0 0.3rem;
   color: var(--ink-soft);
 }
 
-.setup-help summary {
-  cursor: pointer;
-  font-weight: 700;
-  color: var(--sea);
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-}
-
-.setup-help ol {
-  margin: 0.3rem 0 0.4rem;
-  padding-left: 1.2rem;
-}
-
-.setup-help li { margin: 0.15rem 0; }
+.card__actions .btn svg { vertical-align: -0.1em; }

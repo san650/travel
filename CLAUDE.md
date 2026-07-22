@@ -1,0 +1,157 @@
+# travel.42.uy
+
+Vacation-planner PWA. Vanilla ES modules — no build step, no framework, no
+CDN, no backend. Deploys to GitHub Pages (`main`, CNAME travel.42.uy).
+UI language is Spanish (rioplatense voseo); code identifiers in English.
+
+Local dev: `python3 -m http.server 8765` → http://localhost:8765 (this
+origin is the one authorized in the OAuth client — don't change the port).
+
+## Hard rules
+
+- **Bump `VERSION` in `sw.js` on every deploy** and whenever a file is
+  added/renamed — add new local files to the `SHELL` array. The auto-reload
+  broadcast depends on the versioned cache name.
+- Every state mutation goes through `store.dispatch(makeCommand(...))`.
+  Never mutate `store.state` directly. Lifecycle ops (create/delete/switch
+  vacation) are the only exceptions and they clear undo history.
+- Never render remote or user data with innerHTML — `textContent` only.
+- No new external origins. Google scripts (GSI, Picker) load lazily on user
+  gesture only; startup must make zero network requests beyond same-origin
+  shell + OSM tiles.
+- `data-slot` names must be unique within a card subtree (`slot()` queries
+  the whole `li`); attachment chips use the `att-` prefix for this reason.
+
+## Modules
+
+| File | Role |
+|---|---|
+| `app.js` | All core UI: cards, calendar, map wiring, forms, import/export |
+| `store.js` | State container, dispatch/undo/redo, v2→v3 migration, sync records |
+| `commands.js` | Command defs (apply/revert/invert/targets), operate on ONE travel aggregate |
+| `history.js` | Undo stack with 700 ms coalescing for UPDATE_ACTIVITY |
+| `db.js` | IndexedDB v2: stores `state` (doc, profile, drive-config), `sync`, `attachments` |
+| `drive.js` | Drive REST + GSI + Picker wrapper; config (client id/api key/app id) |
+| `sync.js` | Pull/push/merge engine, remote validation, invite join |
+| `share.js` | Sharing UI: chip, share/config/conflict/join dialogs, attachments UX |
+| `confirm.js` | Shared confirm dialog (used by app.js and share.js) |
+| `map.js` / `cities.js` | Leaflet+OSM (no API key) / local gazetteer (no geocoder) |
+
+Support pages (not in SW SHELL): `setup-google.html` (user-facing Cloud
+Console guide, linked from the config modal), `spike.html` (two-account
+drive.file test), `docs/drive-setup.md` (dev notes).
+
+## Data model (schema v3)
+
+`doc = { schemaVersion: 3, vacations: [travel…], activeId }`. Each travel
+is an **aggregate**:
+
+```
+{ id, revision,                     // revision = optimistic-concurrency counter (sync)
+  meta:        { name, start, end, base{name,lat,lon}, rev, updatedAt, updatedBy },
+  activities:  [{ …domain, rev, updatedAt, updatedBy, deletedAt }],
+  attachments: [{ id, activityId, name, mimeType, size, driveFileId,
+                  rev, updatedAt, updatedBy, deletedAt }] }
+```
+
+- Per-entity `rev` bumps on every mutation (stamped centrally in command
+  `apply()`); it is the base for merge conflict detection.
+- **Deletes are tombstones** (`deletedAt` set, entity kept). Render through
+  `alive()` from commands.js. Tombstones >30 days are GC'd at upload.
+- `updatedBy` = local display name (asked once, stored as `profile` in IDB).
+  Cosmetic only — Drive permissions are the security boundary.
+- Migration from v2 is one-way and drops undo history (old payload shapes
+  are incompatible).
+
+## Commands
+
+`COMMANDS[type].apply(travel, payload, ctx)` / `revert(travel, payload)` —
+they receive the travel aggregate, not the whole doc, so the same defs run
+for local dispatch and sync replay. Dispatch stamps `{cmdId, actor, ts}`;
+apply is deterministic given the stamp. `invert(cmd)` builds the inverse
+(for undo of already-synced commands); `targets(payload)` declares
+`[{id, baseRev, col?}]` for conflict detection. Types: ADD/UPDATE/REMOVE
+_ACTIVITY, ADD/REMOVE_ACTIVITIES, SET_ACTIVITIES (import-replace),
+UPDATE_VACATION_META, ADD/REMOVE_ATTACHMENT.
+
+## Sharing model (Google Drive as invisible backend)
+
+Sharing is **per travel**. One shared travel = one folder in the *owner's*
+Drive: `Travel — <name>/` containing `travel.json` (envelope: app tag,
+schemaVersion, revision, updatedAt/By, travel) + attachment files.
+
+- Scope `drive.file` only. App credentials (OAuth Client ID, API key,
+  project number) are public identifiers: entered once in the config modal
+  (persisted in IDB, `drive.js` constants are optional build defaults) and
+  **embedded in invite links** (`?join=<fileId>&c=&k=&a=`) so invitees need
+  zero setup.
+- Invite: owner adds friend's email (Drive permission `writer`/`reader` on
+  the folder) + sends link. The fileId is an address, not a capability —
+  Drive checks the authenticated user's permission. Friends must also be
+  test users in the Cloud project (OAuth app stays in Testing mode).
+- **drive.file trap**: an invitee's token cannot open the file by ID until
+  they pick the shared folder once via the Google Picker — the join flow
+  falls back to the Picker on 403/404.
+- `writersCanShare: false` on everything the app creates → writers edit,
+  only the owner invites/removes/deletes. The sync record's `canShare` flag
+  (set at share/join, refreshed from `capabilities.canShare` each sync)
+  gates the invite UI; members see status + "leave" only. UX only — Drive
+  enforces server-side.
+- Attachment files uploaded by a writer are owned by that writer (Drive
+  rule); folder, state file and membership stay owner-controlled.
+
+## Sync (manual, never background)
+
+Per shared travel, IDB `sync` record:
+`{ driveFolderId, driveFileId, baseRevision, baseDriveVersion, lastSyncAt,
+pending: [commands], canShare }`. Record presence == travel is shared.
+
+- Every dispatch appends the command to `pending` (coalescing mirrored from
+  history). Undo pops if last, else appends `invert(cmd)`.
+- `syncTravel()` decides by comparing Drive `version` vs `baseDriveVersion`
+  and pending length: `clean` / `updated` (adopt remote) / `pushed` (upload
+  `baseRevision+1`) / `merged` (replay pending onto fresh remote snapshot).
+- Replay conflict = command whose target entity's remote `rev` ≠ recorded
+  base rev. Auto-converging cases (remove-on-removed) are not conflicts.
+  Unresolved → UI dialog, caller re-invokes with
+  `resolutions {cmdId: 'mine'|'theirs'}`. Version re-check before PATCH,
+  one retry; not atomic — accepted for a small group.
+- Always `validateRemote()` — a collaborator can edit the file outside the
+  app.
+- Attachments: blob cached in IDB at attach time, uploaded during the next
+  sync (then `driveFileId` back-patched via
+  `store.patchAttachmentDriveIds`, which must NOT clear undo history);
+  other members lazy-download on first open. Attach UI is gated on the
+  travel being shared. 15 MB cap.
+- Status chip in the header = pending count; tap = sync. `beforeunload`
+  nudge when pending non-empty.
+
+## UI conventions
+
+- The words "Google"/"Drive" appear only in the connect consent moment and
+  the config modal — everywhere else: "compartido", "sincronizar".
+- Dialogs are native `<dialog>`; iOS needs `onclick` properties (not
+  addEventListener) on non-interactive tap targets.
+- Form submits defer mutations one tick (`setTimeout 0`) — iOS date-picker
+  teardown flickers otherwise.
+- Confirm flows go through `askConfirm()` from confirm.js; never
+  `alert()`/`confirm()` (unreliable in installed PWAs).
+
+## Gotchas that already bit
+
+- Stale modules in dev: `http.server` sends no cache headers → browser
+  heuristic cache serves old JS when no SW is registered. Test through the
+  SW or hard-reload; don't chase ghost bugs first.
+- Google Cloud Console 2026: OAuth config lives under **Google Auth
+  Platform** (Branding/Audience/Clients) — old "OAuth consent screen"
+  paths in older docs are obsolete. `setup-google.html` is current.
+- Editing an activity keeps its imported photos (form doesn't edit photos).
+- Export (`version: 2` JSON) strips sync fields; import re-IDs activities.
+
+## Status / pending validation
+
+Real-credential tests never run (no Cloud project yet when built):
+two-account end-to-end sync, and the `spike.html` B4 test — whether a
+Picker folder grant covers files other members create later. Attachments
+are built assuming B4 passes; if it fails, fallback is per-file re-pick or
+full-drive scope. Do not silently assume these passed.

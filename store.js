@@ -4,6 +4,7 @@ import {
   loadState, saveState, requestPersistence,
   loadProfile, saveProfile,
   listSyncRecords, putSyncRecord, deleteSyncRecord,
+  deleteAttachmentBlob,
 } from './db.js';
 
 export const SCHEMA_VERSION = 3;
@@ -137,6 +138,19 @@ class Store {
     this.#persistSync(travelId);
   }
 
+  // Bookkeeping del motor de sync tras subir binarios: no pasa por comandos
+  // ni limpia historial (driveFileId no es estado de dominio).
+  patchAttachmentDriveIds(travelId, idMap) {
+    const next = structuredClone(this.state);
+    const travel = next.doc.vacations.find((v) => v.id === travelId);
+    if (!travel) return;
+    travel.attachments = travel.attachments.map((a) =>
+      idMap[a.id] ? { ...a, driveFileId: idMap[a.id] } : a);
+    this.state = next;
+    this.#persist();
+    this.#notify();
+  }
+
   // Used by the sync engine: replace a travel aggregate with a merged/remote
   // snapshot. Clears undo history (its commands no longer match the state).
   replaceTravel(travelId, travel) {
@@ -179,11 +193,15 @@ class Store {
   }
 
   deleteVacation(id) {
+    const gone = this.state.doc.vacations.find((v) => v.id === id);
     this.#lifecycle((s) => {
       s.doc.vacations = s.doc.vacations.filter((v) => v.id !== id);
       if (s.doc.activeId === id) s.doc.activeId = s.doc.vacations[0]?.id ?? null;
     });
     if (this.sync.has(id)) this.removeSyncRecord(id);
+    for (const att of gone?.attachments ?? []) {
+      deleteAttachmentBlob(att.id).catch(() => {});
+    }
   }
 
   switchVacation(id) {
