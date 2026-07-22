@@ -45,6 +45,46 @@ const flash = (text, isError = false) => {
   flashTimer = setTimeout(updateChip, 2600);
 };
 
+// ---------- configuración de Google (primera vez) ----------
+
+const ensureConfigured = async ({ force = false } = {}) => {
+  const cfg = await drive.loadConfig();
+  if (!force && drive.isConfigured()) return;
+  await new Promise((resolve, reject) => {
+    const form = $('form-setup');
+    const error = $('setup-error');
+    form.elements.clientId.value = cfg.clientId || '';
+    form.elements.apiKey.value = cfg.apiKey || '';
+    form.elements.appId.value = cfg.appId || '';
+    error.hidden = true;
+    const onSubmit = async (e) => {
+      e.preventDefault();
+      const clientId = form.elements.clientId.value.trim();
+      if (!clientId.endsWith('.apps.googleusercontent.com')) {
+        error.textContent = 'Ese Client ID no parece válido: termina en .apps.googleusercontent.com.';
+        error.hidden = false;
+        return;
+      }
+      await drive.setConfig({
+        clientId,
+        apiKey: form.elements.apiKey.value,
+        appId: form.elements.appId.value,
+      });
+      cleanup();
+      els.dlgSetup.close();
+      resolve();
+    };
+    const onClose = () => { cleanup(); reject(new Error('cancelled')); };
+    const cleanup = () => {
+      form.removeEventListener('submit', onSubmit);
+      els.dlgSetup.removeEventListener('close', onClose);
+    };
+    form.addEventListener('submit', onSubmit);
+    els.dlgSetup.addEventListener('close', onClose);
+    els.dlgSetup.showModal();
+  });
+};
+
 // ---------- nombre local (updatedBy) ----------
 
 const ensureActor = () => {
@@ -229,6 +269,7 @@ const shareNow = async () => {
   const v = store.activeVacation();
   if (!v) return;
   try {
+    await ensureConfigured();
     await ensureActor();
   } catch { return; }
   els.shareBtnStart.disabled = true;
@@ -311,6 +352,7 @@ const showJoinError = (message) => {
 const joinGo = async () => {
   $('join-error').hidden = true;
   try {
+    await ensureConfigured();
     await ensureActor();
   } catch { return; }
   els.joinGoBtn.disabled = true;
@@ -331,6 +373,12 @@ const joinGo = async () => {
       joinMode = 'picker';
       $('join-picker').hidden = false;
       els.joinGoBtn.textContent = 'Elegir carpeta';
+    } else if (err.code === 'NOT_CONFIGURED') {
+      // Faltan API key / número de proyecto para el selector.
+      try {
+        await ensureConfigured({ force: true });
+        showJoinError('Listo. Tocá de nuevo para continuar.');
+      } catch {}
     } else if (err.code === 'OFFLINE') {
       showJoinError('Sin conexión. Abrí el enlace de nuevo cuando tengas internet.');
     } else if (err.code === 'NOT_A_TRAVEL' || err.code === 'INVALID_REMOTE') {
@@ -364,6 +412,7 @@ export const initShare = () => {
     dlgConflicts: $('dlg-conflicts'),
     dlgName: $('dlg-name'),
     dlgJoin: $('dlg-join'),
+    dlgSetup: $('dlg-setup'),
     shareError: $('share-error'),
     shareBtnStart: $('btn-share-start'),
     shareCopyBtn: $('btn-share-copy'),
@@ -381,6 +430,8 @@ export const initShare = () => {
   els.shareCopyBtn.onclick = () => copyInvite();
   els.memberForm.addEventListener('submit', addMember);
   els.dlgShare.onclick = (ev) => { if (ev.target === els.dlgShare) els.dlgShare.close(); };
+  $('btn-setup-edit').onclick = () => ensureConfigured({ force: true }).catch(() => {});
+  $('btn-setup-cancel').onclick = () => els.dlgSetup.close();
 
   els.joinGoBtn.onclick = () => joinGo();
   $('btn-join-cancel').onclick = () => { els.dlgJoin.close(); stripJoinParam(); };

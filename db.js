@@ -56,6 +56,11 @@ export const saveState = (state) => put(STATE, DOC_KEY, state);
 export const loadProfile = () => get(STATE, PROFILE_KEY);
 export const saveProfile = (profile) => put(STATE, PROFILE_KEY, profile);
 
+// ---------- config de Google (client id, api key, app id) ----------
+
+export const loadDriveConfig = () => get(STATE, 'drive-config');
+export const saveDriveConfig = (cfg) => put(STATE, 'drive-config', cfg);
+
 // ---------- per-travel sync records ----------
 // { driveFolderId, driveFileId, baseRevision, baseDriveVersion, lastSyncAt, pending: [] }
 

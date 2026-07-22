@@ -1465,3 +1465,38 @@ button:focus-visible, a:focus-visible {
   min-height: 36px;
   font-size: 0.88rem;
 }
+
+.linklike {
+  display: block;
+  margin: 0.7rem auto 0;
+  border: 0;
+  background: none;
+  min-height: 34px;
+  padding: 0.1rem 0.4rem;
+  color: var(--sea);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.setup-help {
+  margin: 0.5rem 0 0.2rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.setup-help summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--sea);
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+}
+
+.setup-help ol {
+  margin: 0.3rem 0 0.4rem;
+  padding-left: 1.2rem;
+}
+
+.setup-help li { margin: 0.15rem 0; }

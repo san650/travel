@@ -472,6 +472,50 @@
         <button type="button" id="btn-share-close" class="btn">Cerrar</button>
       </div>
     </section>
+    <button type="button" id="btn-setup-edit" class="linklike">Configuración de Google…</button>
+  </dialog>
+
+  <dialog id="dlg-setup" class="dlg" aria-labelledby="dlg-setup-title">
+    <form id="form-setup" novalidate>
+      <h2 id="dlg-setup-title">Conectar con Google</h2>
+      <p class="dlg-sub">Configuración por única vez en este dispositivo. Los
+      tres valores salen de Google Cloud Console y son públicos: no son
+      contraseñas.</p>
+      <label class="field">
+        <span>Client ID</span>
+        <input name="clientId" type="text" required placeholder="…apps.googleusercontent.com"
+               autocomplete="off" autocapitalize="off" spellcheck="false" />
+      </label>
+      <label class="field">
+        <span>API key</span>
+        <input name="apiKey" type="text" placeholder="AIza…"
+               autocomplete="off" autocapitalize="off" spellcheck="false" />
+      </label>
+      <label class="field">
+        <span>Número de proyecto</span>
+        <input name="appId" type="text" inputmode="numeric" placeholder="123456789012"
+               autocomplete="off" spellcheck="false" />
+      </label>
+      <p class="field-hint">API key y número de proyecto solo hacen falta para
+      unirse a un viaje eligiendo la carpeta con el selector; podés dejarlos
+      vacíos y cargarlos después.</p>
+      <details class="setup-help">
+        <summary>¿De dónde saco esto?</summary>
+        <ol>
+          <li>En <strong>console.cloud.google.com</strong>, creá un proyecto.</li>
+          <li>Biblioteca de APIs: habilitá <strong>Google Drive API</strong> y <strong>Google Picker API</strong>.</li>
+          <li>Pantalla de consentimiento OAuth: tipo Externo, estado Testing; agregá tu email y el de tus amigos como test users.</li>
+          <li>Credenciales → ID de cliente OAuth (Aplicación web), con este sitio como origen autorizado → <strong>Client ID</strong>.</li>
+          <li>Credenciales → Clave de API → <strong>API key</strong>.</li>
+          <li>Configuración del proyecto → <strong>Número del proyecto</strong>.</li>
+        </ol>
+      </details>
+      <p id="setup-error" class="form-error" role="alert" hidden></p>
+      <div class="dlg__actions">
+        <button type="button" id="btn-setup-cancel" class="btn">Cancelar</button>
+        <button type="submit" class="btn btn--primary">Guardar</button>
+      </div>
+    </form>
   </dialog>
 
   <template id="tpl-member">

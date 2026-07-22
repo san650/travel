@@ -31,13 +31,13 @@ navegador (no hay secretos: nunca pongas un client secret en la PWA).
 
 ## Dónde van
 
-En `drive.js`, arriba de todo:
+La app los pide sola la primera vez que tocás «Compartir este viaje» (o al
+abrir una invitación) y los guarda en IndexedDB del dispositivo. Para
+corregirlos después: diálogo Compartir → «Configuración de Google…».
 
-```js
-const CLIENT_ID = '…apps.googleusercontent.com';
-const API_KEY = 'AIza…';
-const APP_ID = '123456789012';
-```
+Opcionalmente se pueden dejar como defaults de build en las constantes de
+`drive.js` (`CLIENT_ID` / `API_KEY` / `APP_ID`); lo guardado en el modal
+pisa esos defaults.
 
 Los tres valores son públicos por diseño; la autorización real la hacen
 los permisos de Drive sobre la carpeta compartida.

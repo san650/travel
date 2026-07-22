@@ -5,11 +5,48 @@
 // backend: toda operación de red tolera re-autorización, y la autorización
 // solo se dispara desde un gesto del usuario (popups).
 
+import { loadDriveConfig, saveDriveConfig } from './db.js';
+
 // Config — crear en Google Cloud Console (ver docs/drive-setup.md):
 // OAuth client ID (Web), API key de navegador y número de proyecto.
+// Estos valores son defaults opcionales de build; lo que el usuario carga
+// en el modal de configuración (persistido en IndexedDB) los pisa.
 const CLIENT_ID = '';
 const API_KEY = '';
 const APP_ID = '';
+
+const config = { clientId: CLIENT_ID, apiKey: API_KEY, appId: APP_ID };
+let configLoaded = false;
+
+export const loadConfig = async () => {
+  if (!configLoaded) {
+    configLoaded = true;
+    try {
+      const saved = await loadDriveConfig();
+      if (saved) {
+        for (const k of ['clientId', 'apiKey', 'appId']) {
+          if (saved[k]) config[k] = saved[k];
+        }
+      }
+    } catch (err) {
+      console.error('drive config load failed', err);
+    }
+  }
+  return { ...config };
+};
+
+export const setConfig = async ({ clientId, apiKey, appId }) => {
+  config.clientId = (clientId ?? '').trim();
+  config.apiKey = (apiKey ?? '').trim();
+  config.appId = (appId ?? '').trim();
+  configLoaded = true;
+  tokenClient = null; // recrear el token client con el nuevo client id
+  accessToken = null;
+  expiresAt = 0;
+  await saveDriveConfig({ ...config });
+};
+
+export const getConfig = () => ({ ...config });
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const API = 'https://www.googleapis.com/drive/v3';
@@ -24,7 +61,8 @@ export class DriveError extends Error {
   }
 }
 
-export const isConfigured = () => Boolean(CLIENT_ID);
+export const isConfigured = () => Boolean(config.clientId);
+export const isPickerConfigured = () => Boolean(config.apiKey && config.appId);
 
 const scriptPromises = new Map();
 const loadScript = (src) => {
@@ -49,8 +87,9 @@ let accessToken = null;
 let expiresAt = 0;
 
 const ensureGsi = async () => {
+  await loadConfig();
   if (!isConfigured()) {
-    throw new DriveError('Falta configurar el CLIENT_ID de Google en drive.js.', { code: 'NOT_CONFIGURED' });
+    throw new DriveError('Falta la configuración de Google.', { code: 'NOT_CONFIGURED' });
   }
   await loadScript('https://accounts.google.com/gsi/client');
   if (!window.google?.accounts?.oauth2) {
@@ -58,7 +97,7 @@ const ensureGsi = async () => {
   }
   if (!tokenClient) {
     tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
+      client_id: config.clientId,
       scope: SCOPE,
       callback: () => {},
     });
@@ -256,6 +295,10 @@ export const removePermission = async ({ fileId, permissionId }) => {
 // null si canceló.
 
 export const pickSharedFolder = async () => {
+  await loadConfig();
+  if (!isPickerConfigured()) {
+    throw new DriveError('Falta la clave del selector (API key y número de proyecto).', { code: 'NOT_CONFIGURED' });
+  }
   await ensureToken();
   await loadScript('https://apis.google.com/js/api.js');
   await new Promise((resolve, reject) => {
@@ -268,8 +311,8 @@ export const pickSharedFolder = async () => {
       .setOwnedByMe(false);
     const picker = new google.picker.PickerBuilder()
       .setOAuthToken(accessToken)
-      .setDeveloperKey(API_KEY)
-      .setAppId(APP_ID)
+      .setDeveloperKey(config.apiKey)
+      .setAppId(config.appId)
       .addView(view)
       .setCallback((data) => {
         if (data.action === google.picker.Action.PICKED) resolve(data.docs?.[0] ?? null);
