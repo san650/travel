@@ -1,7 +1,9 @@
 import { store } from './store.js';
-import { makeCommand } from './commands.js';
+import { makeCommand, alive } from './commands.js';
 import { CITIES, findCity } from './cities.js';
 import * as tripMap from './map.js';
+import { askConfirm } from './confirm.js';
+import { initShare } from './share.js';
 
 const KINDS = {
   viaje: 'Viaje',
@@ -30,11 +32,6 @@ const els = {
   formSubmit: document.querySelector('[data-slot="form-submit"]'),
   formError: $('form-error'),
   formCancel: $('btn-form-cancel'),
-  dlgConfirm: $('dlg-confirm'),
-  confirmTitle: $('confirm-title'),
-  confirmBody: $('confirm-body'),
-  confirmAccept: document.querySelector('[data-confirm-accept]'),
-  confirmCancel: document.querySelector('[data-confirm-cancel]'),
   fileImport: $('file-import'),
   fileAppend: $('file-append'),
   dlgTools: $('dlg-tools'),
@@ -71,7 +68,7 @@ const fmtDay = new Intl.DateTimeFormat('es', { weekday: 'short', day: 'numeric',
 const fmtShort = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', year: '2-digit' });
 
 const tripDayNum = (s) =>
-  Math.round((parseDate(s) - parseDate(trip().start)) / 86400000) + 1;
+  Math.round((parseDate(s) - parseDate(trip().meta.start)) / 86400000) + 1;
 
 const fmtRange = (act) => {
   if (!act.end || act.end === act.start) return `${fmtDay.format(parseDate(act.start))} · por el día`;
@@ -85,7 +82,7 @@ const fmtTripDays = (act) => {
 };
 
 const fmtTripRange = (v) =>
-  `${fmtShort.format(parseDate(v.start))} → ${fmtShort.format(parseDate(v.end))}`;
+  `${fmtShort.format(parseDate(v.meta.start))} → ${fmtShort.format(parseDate(v.meta.end))}`;
 
 // ---------- selección + ruta ----------
 
@@ -93,13 +90,13 @@ let selectedId = null;
 const sorted = () => {
   const v = trip();
   if (!v) return [];
-  return [...v.activities].sort(
+  return alive(v.activities).sort(
     (x, y) => x.start.localeCompare(y.start) || (x.end || x.start).localeCompare(y.end || y.start)
   );
 };
 
 const routeText = (act) => {
-  const base = trip().base;
+  const base = trip().meta.base;
   const km = tripMap.haversineKm(base, act);
   const roadKm = Math.round(km * 1.25);
   const mins = Math.round((roadKm / 85) * 60);
@@ -108,7 +105,7 @@ const routeText = (act) => {
 };
 
 const showRouteFor = (act, { fit } = {}) => {
-  tripMap.showRoute(trip().base, act, { fit });
+  tripMap.showRoute(trip().meta.base, act, { fit });
   els.routeText.textContent = routeText(act);
   els.routeInfo.hidden = false;
 };
@@ -142,31 +139,6 @@ const select = (act, { scrollCard = false } = {}) => {
   tripMap.renderMarkers(sorted(), selectedId, (a) => select(a, { scrollCard: true }));
 };
 
-// ---------- confirm dialog ----------
-
-let confirmResolver = null;
-const settleConfirm = (value) => {
-  if (confirmResolver) { confirmResolver(value); confirmResolver = null; }
-  if (els.dlgConfirm.open) els.dlgConfirm.close();
-};
-
-const askConfirm = ({ title, body, acceptLabel = 'Borrar' }) =>
-  new Promise((resolve) => {
-    els.confirmTitle.textContent = title;
-    els.confirmBody.textContent = body || '';
-    els.confirmBody.hidden = !body;
-    els.confirmAccept.textContent = acceptLabel;
-    confirmResolver = resolve;
-    els.dlgConfirm.showModal();
-  });
-
-els.confirmAccept.onclick = () => settleConfirm(true);
-els.confirmCancel.onclick = () => settleConfirm(false);
-els.dlgConfirm.addEventListener('close', () => { if (confirmResolver) settleConfirm(false); });
-// onclick (propiedad) y no addEventListener: iOS solo dispara click en
-// elementos no interactivos si tienen la propiedad onclick o cursor:pointer.
-els.dlgConfirm.onclick = (ev) => { if (ev.target === els.dlgConfirm) settleConfirm(false); };
-
 // ---------- vacaciones ----------
 
 const resetView = () => {
@@ -181,10 +153,11 @@ const renderVacList = () => {
   els.vacList.replaceChildren(...vacations.map((v) => {
     const li = cloneTpl('tpl-vac');
     if (v.id === activeId) li.classList.add('vac--active');
-    slot(li, 'name').textContent = v.name;
-    const n = v.activities.length;
+    slot(li, 'name').textContent = v.meta.name;
+    const n = alive(v.activities).length;
+    const shared = store.isShared(v.id) ? ' · compartido' : '';
     slot(li, 'sub').textContent =
-      `${fmtTripRange(v)} · base ${v.base.name} · ${n === 1 ? '1 parada' : `${n} paradas`}`;
+      `${fmtTripRange(v)} · base ${v.meta.base.name} · ${n === 1 ? '1 parada' : `${n} paradas`}${shared}`;
     slot(li, 'open').onclick = () => {
       els.dlgVacs.close();
       if (v.id !== activeId) {
@@ -194,7 +167,7 @@ const renderVacList = () => {
     };
     slot(li, 'delete').onclick = async () => {
       const ok = await askConfirm({
-        title: `¿Borrar «${v.name}»?`,
+        title: `¿Borrar «${v.meta.name}»?`,
         body: 'Se pierden todas sus paradas. No se puede deshacer.',
       });
       if (!ok) return;
@@ -238,13 +211,21 @@ els.vacForm.addEventListener('submit', (e) => {
   const city = findCity(baseName);
   if (!city) return showVacError(`No conozco «${baseName}». Elegí una ciudad de la lista.`);
 
+  const now = new Date().toISOString();
   const vacation = {
     id: crypto.randomUUID(),
-    name,
-    start,
-    end,
-    base: { name: city.name, lat: city.lat, lon: city.lon },
+    revision: 0,
+    meta: {
+      name,
+      start,
+      end,
+      base: { name: city.name, lat: city.lat, lon: city.lon },
+      rev: 0,
+      updatedAt: now,
+      updatedBy: store.actor ?? null,
+    },
     activities: [],
+    attachments: [],
   };
 
   els.dlgVacForm.close();
@@ -273,10 +254,10 @@ const openForm = (act) => {
   els.formError.hidden = true;
   const f = els.form;
   f.reset();
-  f.elements.start.min = v.start;
-  f.elements.start.max = v.end;
-  f.elements.end.min = v.start;
-  f.elements.end.max = v.end;
+  f.elements.start.min = v.meta.start;
+  f.elements.start.max = v.meta.end;
+  f.elements.end.min = v.meta.start;
+  f.elements.end.max = v.meta.end;
   f.elements.title.value = act?.title ?? '';
   f.elements.city.value = act?.city ?? '';
   f.elements.start.value = act?.start ?? '';
@@ -313,11 +294,11 @@ els.form.addEventListener('submit', (e) => {
   }
   if (!city) return showFormError(`No conozco «${cityName}». Elegí una ciudad de la lista.`);
   if (!start) return showFormError('Falta la fecha de inicio.');
-  if (start < v.start || start > v.end) {
+  if (start < v.meta.start || start > v.meta.end) {
     return showFormError(`Esa fecha cae fuera del viaje (${fmtTripRange(v)}).`);
   }
   if (end && end < start) end = start;
-  if (end && end > v.end) end = v.end;
+  if (end && end > v.meta.end) end = v.meta.end;
 
   const activity = {
     id: editingId ?? crypto.randomUUID(),
@@ -420,8 +401,7 @@ const renderCards = () => {
         body: 'Podés deshacerlo con ↶.',
       });
       if (!ok) return;
-      const index = trip().activities.findIndex((a) => a.id === act.id);
-      store.dispatch(makeCommand('REMOVE_ACTIVITY', { activity: act, index }));
+      store.dispatch(makeCommand('REMOVE_ACTIVITY', { activity: act }));
     };
 
     return li;
@@ -490,8 +470,8 @@ const renderCalendar = () => {
   const dayMap = buildDayMap(acts);
   const box = $('cal-months');
   const todayIso = toIso(new Date());
-  const first = parseDate(v.start);
-  const last = parseDate(v.end);
+  const first = parseDate(v.meta.start);
+  const last = parseDate(v.meta.end);
 
   const months = [];
   for (let m = new Date(first.getFullYear(), first.getMonth(), 1); m <= last; m = new Date(m.getFullYear(), m.getMonth() + 1, 1)) {
@@ -501,7 +481,7 @@ const renderCalendar = () => {
     let tripDays = 0;
     for (let day = 1; day <= daysInMonth; day++) {
       const iso = toIso(new Date(m.getFullYear(), m.getMonth(), day));
-      if (iso >= v.start && iso <= v.end) tripDays++;
+      if (iso >= v.meta.start && iso <= v.meta.end) tripDays++;
     }
     if (tripDays > 1) months.push(m);
   }
@@ -518,7 +498,7 @@ const renderCalendar = () => {
     const daysInMonth = new Date(m0.getFullYear(), m0.getMonth() + 1, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
       const iso = toIso(new Date(m0.getFullYear(), m0.getMonth(), day));
-      const inTrip = iso >= v.start && iso <= v.end;
+      const inTrip = iso >= v.meta.start && iso <= v.meta.end;
       const dayActs = dayMap.get(iso) ?? [];
       const cell = el('button', 'cal-day');
       cell.type = 'button';
@@ -571,9 +551,9 @@ const render = () => {
   els.timeline.hidden = !inApp;
   els.fab.hidden = !inApp;
   els.fabTools.hidden = !inApp;
-  els.tripName.textContent = v ? v.name : 'Travel';
+  els.tripName.textContent = v ? v.meta.name : 'Travel';
   els.tripSub.textContent = v
-    ? `${fmtTripRange(v)} · base ${v.base.name}`
+    ? `${fmtTripRange(v)} · base ${v.meta.base.name}`
     : 'Planificá tus vacaciones';
   els.banner.hidden = !store.persistError;
 
@@ -584,7 +564,7 @@ const render = () => {
     return;
   }
 
-  tripMap.setBase(v.base);
+  tripMap.setBase(v.meta.base);
   if (!wasInApp) {
     wasInApp = true;
     // El mapa pudo inicializarse oculto (modo bienvenida): recalcular tamaño.
@@ -618,15 +598,17 @@ const slug = (s) =>
 const exportJson = async () => {
   const v = trip();
   if (!v) return;
+  const m = v.meta;
   const data = {
     app: 'travel-42uy',
     version: 2,
-    trip: { name: v.name, start: v.start, end: v.end, base: v.base },
+    trip: { name: m.name, start: m.start, end: m.end, base: m.base },
     exportedAt: new Date().toISOString(),
-    activities: v.activities,
+    // Sin campos de sincronización (rev/updatedAt/…): el export es portable.
+    activities: alive(v.activities).map(exportActivity),
   };
   const text = JSON.stringify(data, null, 2);
-  const filename = `travel-${slug(v.name)}.json`;
+  const filename = `travel-${slug(m.name)}.json`;
   const blob = new Blob([text], { type: 'application/json' });
   try {
     const file = new File([blob], filename, { type: 'application/json' });
@@ -642,6 +624,9 @@ const exportJson = async () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 };
 
+const exportActivity = ({ id, kind, title, city, lat, lon, start, end, desc, photos }) =>
+  ({ id, kind, title, city, lat, lon, start, end, desc, photos });
+
 const isIsoDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 const validActivity = (a) => {
@@ -649,7 +634,7 @@ const validActivity = (a) => {
   return a && typeof a === 'object' &&
     typeof a.title === 'string' && typeof a.city === 'string' &&
     typeof a.lat === 'number' && typeof a.lon === 'number' &&
-    isIsoDate(a.start) && a.start >= v.start && a.start <= v.end &&
+    isIsoDate(a.start) && a.start >= v.meta.start && a.start <= v.meta.end &&
     (a.end == null || a.end === '' || isIsoDate(a.end));
 };
 
@@ -663,7 +648,7 @@ const sanitizeActivity = (a) => {
     lat: a.lat,
     lon: a.lon,
     start: a.start,
-    end: isIsoDate(a.end) && a.end !== a.start ? (a.end > v.end ? v.end : a.end) : '',
+    end: isIsoDate(a.end) && a.end !== a.start ? (a.end > v.meta.end ? v.meta.end : a.end) : '',
     desc: typeof a.desc === 'string' ? a.desc : '',
     photos: Array.isArray(a.photos) ? a.photos.filter((p) => typeof p === 'string' && /^https?:\/\//i.test(p)) : [],
   };
@@ -694,12 +679,15 @@ const importJson = async (file) => {
   if (!list) return;
   const ok = await askConfirm({
     title: '¿Importar itinerario?',
-    body: `Reemplaza las paradas actuales por las ${list.length} del archivo. No se puede deshacer.`,
+    body: `Reemplaza las paradas actuales por las ${list.length} del archivo. Podés deshacerlo con ↶.`,
     acceptLabel: 'Importar',
   });
   if (!ok) return;
   animated.clear();
-  store.replaceActivities(list.map(sanitizeActivity));
+  store.dispatch(makeCommand('SET_ACTIVITIES', {
+    activities: list.map(sanitizeActivity),
+    prev: alive(trip().activities),
+  }));
 };
 
 const importAppend = async (file) => {
@@ -723,9 +711,9 @@ const buildGptPrompt = () => {
     ? acts.map((a) => `${a.start}${a.end ? `→${a.end}` : ''} (${a.city})`).join(', ')
     : '(ninguna por ahora)';
   return [
-    `Sos mi asistente para organizar un viaje: «${v.name}». Contexto:`,
-    `- Estadía: del ${v.start} al ${v.end} (fechas fijas).`,
-    `- Base: ${v.base.name} — vuelvo a dormir ahí salvo escapadas con noche.`,
+    `Sos mi asistente para organizar un viaje: «${v.meta.name}». Contexto:`,
+    `- Estadía: del ${v.meta.start} al ${v.meta.end} (fechas fijas).`,
+    `- Base: ${v.meta.base.name} — vuelvo a dormir ahí salvo escapadas con noche.`,
     '- Me encanta la fotografía: proponé spots de fotos (miradores, atardeceres, cascos antiguos).',
     '',
     'Ayudame a planificar paradas: escapadas de varios días, visitas por el día, museos, comida y lugares para fotografiar. Charlemos lo que haga falta; cuando yo escriba «exportar», respondé ÚNICAMENTE con un JSON válido (sin markdown, sin texto extra) con exactamente esta forma:',
@@ -857,6 +845,7 @@ const start = async () => {
 
   window.addEventListener('keydown', onKeyDown);
   wireSwReload();
+  initShare();
 
   store.subscribe(render);
   render();

@@ -1,7 +1,10 @@
 const DB_NAME = 'travel-42uy';
-const DB_VERSION = 1;
-const STORE = 'state';
+const DB_VERSION = 2;
+const STATE = 'state';
+const SYNC = 'sync';
+const ATTACHMENTS = 'attachments';
 const DOC_KEY = 'app';
+const PROFILE_KEY = 'profile';
 
 let dbPromise = null;
 
@@ -11,7 +14,9 @@ const openDb = () => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
-      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+      for (const name of [STATE, SYNC, ATTACHMENTS]) {
+        if (!db.objectStoreNames.contains(name)) db.createObjectStore(name);
+      }
     };
     req.onsuccess = () => {
       const db = req.result;
@@ -26,28 +31,54 @@ const openDb = () => {
   return dbPromise;
 };
 
-const tx = async (mode) => {
+const tx = async (store, mode) => {
   const db = await openDb();
-  return db.transaction(STORE, mode).objectStore(STORE);
+  return db.transaction(store, mode).objectStore(store);
 };
 
-export const loadState = async () => {
-  const s = await tx('readonly');
-  return new Promise((res, rej) => {
-    const r = s.get(DOC_KEY);
-    r.onsuccess = () => res(r.result ?? null);
+const reqAsPromise = (r) =>
+  new Promise((res, rej) => {
+    r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
   });
+
+const get = async (store, key) => reqAsPromise((await tx(store, 'readonly')).get(key)).then((v) => v ?? null);
+const put = async (store, key, value) => reqAsPromise((await tx(store, 'readwrite')).put(value, key));
+const del = async (store, key) => reqAsPromise((await tx(store, 'readwrite')).delete(key));
+
+// ---------- app state ----------
+
+export const loadState = () => get(STATE, DOC_KEY);
+export const saveState = (state) => put(STATE, DOC_KEY, state);
+
+// ---------- local profile (display name for updatedBy) ----------
+
+export const loadProfile = () => get(STATE, PROFILE_KEY);
+export const saveProfile = (profile) => put(STATE, PROFILE_KEY, profile);
+
+// ---------- per-travel sync records ----------
+// { driveFolderId, driveFileId, baseRevision, baseDriveVersion, lastSyncAt, pending: [] }
+
+export const getSyncRecord = (travelId) => get(SYNC, travelId);
+export const putSyncRecord = (travelId, rec) => put(SYNC, travelId, rec);
+export const deleteSyncRecord = (travelId) => del(SYNC, travelId);
+
+export const listSyncRecords = async () => {
+  const s = await tx(SYNC, 'readonly');
+  const [keys, values] = await Promise.all([
+    reqAsPromise(s.getAllKeys()),
+    reqAsPromise(s.getAll()),
+  ]);
+  const map = new Map();
+  keys.forEach((k, i) => map.set(k, values[i]));
+  return map;
 };
 
-export const saveState = async (state) => {
-  const s = await tx('readwrite');
-  return new Promise((res, rej) => {
-    const r = s.put(state, DOC_KEY);
-    r.onsuccess = () => res();
-    r.onerror = () => rej(r.error);
-  });
-};
+// ---------- attachment blobs ----------
+
+export const getAttachmentBlob = (id) => get(ATTACHMENTS, id);
+export const putAttachmentBlob = (id, blob) => put(ATTACHMENTS, id, blob);
+export const deleteAttachmentBlob = (id) => del(ATTACHMENTS, id);
 
 export const requestPersistence = async () => {
   if (navigator.storage?.persist) {

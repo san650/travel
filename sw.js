@@ -1,5 +1,5 @@
 const CACHE_NAME = 'travel42uy';
-const VERSION = 'v15';
+const VERSION = 'v16';
 const CACHE = `${CACHE_NAME}-${VERSION}`;
 
 const SHELL = [
@@ -14,6 +14,10 @@ const SHELL = [
   './history.js',
   './store.js',
   './db.js',
+  './confirm.js',
+  './drive.js',
+  './share.js',
+  './sync.js',
   './icon.svg',
   './fonts/fonts.css',
   './fonts/alegreya-800.woff2',

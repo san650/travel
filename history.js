@@ -18,26 +18,31 @@ export class History {
     return { past: this.past, future: this.future };
   }
 
+  // cmd arrives already stamped (cmdId/actor/ts) by the store. Returns the
+  // entry actually stored: on coalesce it keeps the previous entry's cmdId so
+  // the pending sync log can match and merge the same way.
   record(cmd) {
-    const stamped = { ...cmd, t: Date.now() };
     const last = this.past[this.past.length - 1];
     if (
       last &&
       last.type === cmd.type &&
       cmd.type === 'UPDATE_ACTIVITY' &&
       coalesceKeyOf(last) === coalesceKeyOf(cmd) &&
-      stamped.t - last.t < COALESCE_WINDOW_MS
+      cmd.ts - last.ts < COALESCE_WINDOW_MS
     ) {
-      this.past[this.past.length - 1] = {
+      const merged = {
         ...last,
         payload: { ...last.payload, to: cmd.payload.to },
-        t: stamped.t,
+        ts: cmd.ts,
       };
-    } else {
-      this.past.push(stamped);
-      if (this.past.length > MAX_ENTRIES) this.past.shift();
+      this.past[this.past.length - 1] = merged;
+      this.future = [];
+      return { cmd: merged, coalesced: true };
     }
+    this.past.push(cmd);
+    if (this.past.length > MAX_ENTRIES) this.past.shift();
     this.future = [];
+    return { cmd, coalesced: false };
   }
 
   popUndo() { return this.past.pop() ?? null; }

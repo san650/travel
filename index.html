@@ -98,6 +98,12 @@
       <path d="M6 9.8V19a1.2 1.2 0 0 0 1.2 1.2h9.6A1.2 1.2 0 0 0 18 19V9.8" />
       <path d="M10.3 20.2v-5h3.4v5" />
     </symbol>
+    <symbol id="i-people" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="9" cy="8.5" r="3.2" />
+      <path d="M3.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+      <circle cx="16.8" cy="9.5" r="2.6" />
+      <path d="M15.8 14.6c2.7.2 4.7 2 4.7 4.9" />
+    </symbol>
     <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
       <path d="M12 5v14M5 12h14" />
     </symbol>
@@ -141,6 +147,7 @@
           <span class="hdr__sub" data-slot="trip-sub"></span>
         </button>
       </h1>
+      <button type="button" id="sync-chip" class="sync-chip" hidden></button>
     </div>
   </header>
 
@@ -223,6 +230,12 @@
       </button>
     </div>
     <div class="drawer__list">
+      <button type="button" id="btn-share" class="drawer__item">
+        <span class="drawer__icon" aria-hidden="true"><svg width="22" height="22"><use href="#i-people" /></svg></span>
+        <span class="drawer__label">Compartir viaje
+          <small>Editalo con amigos, sincronizado</small>
+        </span>
+      </button>
       <button type="button" id="btn-gpt" class="drawer__item">
         <span class="drawer__icon" aria-hidden="true"><svg width="22" height="22"><use href="#i-robot" /></svg></span>
         <span class="drawer__label">Planificar con ChatGPT
@@ -424,6 +437,102 @@
         <button type="submit" class="btn btn--primary">Crear viaje</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="dlg-share" class="dlg" aria-labelledby="dlg-share-title">
+    <h2 id="dlg-share-title">Compartir viaje</h2>
+    <p id="share-error" class="form-error" role="alert" hidden></p>
+    <section id="share-off">
+      <p class="dlg-sub">Editá este viaje con amigos: cada uno lo ve y lo cambia
+      desde su teléfono, y los cambios se combinan al sincronizar.</p>
+      <p class="field-hint">Hace falta una cuenta de Google (la tuya y la de tus amigos).</p>
+      <div class="dlg__actions">
+        <button type="button" id="btn-share-cancel" class="btn">Cerrar</button>
+        <button type="button" id="btn-share-start" class="btn btn--primary">Compartir este viaje</button>
+      </div>
+    </section>
+    <section id="share-on" hidden>
+      <p id="share-status" class="dlg-sub"></p>
+      <div class="share-invite">
+        <input id="share-link" type="text" readonly aria-label="Enlace de invitación" />
+        <button type="button" id="btn-share-copy" class="btn btn--small">Copiar</button>
+      </div>
+      <p class="field-hint">Invitá por email para dar permiso y pasales el enlace.</p>
+      <form id="form-member" class="share-add">
+        <input name="email" type="email" required placeholder="amiga@gmail.com" aria-label="Email de tu amigo" />
+        <select name="role" aria-label="Permiso">
+          <option value="writer">Puede editar</option>
+          <option value="reader">Solo mirar</option>
+        </select>
+        <button type="submit" class="btn btn--small btn--primary">Invitar</button>
+      </form>
+      <ul id="member-list" class="member-list"></ul>
+      <div class="dlg__actions">
+        <button type="button" id="btn-share-stop" class="btn btn--danger btn--small">Dejar de sincronizar</button>
+        <button type="button" id="btn-share-close" class="btn">Cerrar</button>
+      </div>
+    </section>
+  </dialog>
+
+  <template id="tpl-member">
+    <li class="member">
+      <span class="member__name" data-slot="name"></span>
+      <span class="member__role" data-slot="role"></span>
+      <button type="button" class="member__del" data-slot="remove" aria-label="Quitar acceso">
+        <svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </li>
+  </template>
+
+  <dialog id="dlg-conflicts" class="dlg" aria-labelledby="dlg-conf-title">
+    <h2 id="dlg-conf-title">Cambios en conflicto</h2>
+    <p class="dlg-sub">Alguien más cambió estas paradas mientras vos también.
+    Elegí qué versión queda en cada una.</p>
+    <ul id="conflict-list" class="conflict-list"></ul>
+    <div class="dlg__actions">
+      <button type="button" id="btn-conf-cancel" class="btn">Cancelar</button>
+      <button type="button" id="btn-conf-apply" class="btn btn--primary" disabled>Aplicar</button>
+    </div>
+  </dialog>
+
+  <template id="tpl-conflict">
+    <li class="conflict">
+      <span class="conflict__name" data-slot="name"></span>
+      <span class="conflict__sub" data-slot="sub"></span>
+      <div class="seg conflict__seg" role="group" aria-label="Qué versión queda">
+        <button type="button" class="seg__btn" data-slot="mine">Lo mío</button>
+        <button type="button" class="seg__btn" data-slot="theirs">Lo de ellos</button>
+      </div>
+    </li>
+  </template>
+
+  <dialog id="dlg-name" class="dlg" aria-labelledby="dlg-name-title">
+    <form id="form-name" novalidate>
+      <h2 id="dlg-name-title">¿Cómo te llamás?</h2>
+      <p class="dlg-sub">Para que en un viaje compartido se vea quién cambió qué.</p>
+      <label class="field">
+        <span>Tu nombre</span>
+        <input name="name" type="text" required maxlength="30" placeholder="Santi" />
+      </label>
+      <div class="dlg__actions">
+        <button type="submit" class="btn btn--primary">Listo</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-join" class="dlg" aria-labelledby="dlg-join-title">
+    <h2 id="dlg-join-title">Te invitaron a un viaje</h2>
+    <p class="dlg-sub">Conectá tu cuenta de Google para abrirlo.
+    Después queda en «Tus viajes» como uno más.</p>
+    <section id="join-picker" hidden>
+      <p class="dlg-sub">Falta un paso: elegí la carpeta del viaje en el
+      selector (aparece en «Compartido conmigo») para darle acceso a la app.</p>
+    </section>
+    <p id="join-error" class="form-error" role="alert" hidden></p>
+    <div class="dlg__actions">
+      <button type="button" id="btn-join-cancel" class="btn">Ahora no</button>
+      <button type="button" id="btn-join-go" class="btn btn--primary">Conectar y abrir</button>
+    </div>
   </dialog>
 
   <dialog id="dlg-confirm" class="dlg dlg--confirm" aria-labelledby="confirm-title">

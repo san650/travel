@@ -1,0 +1,226 @@
+<!doctype html>
+<!-- Spike Step 0: ¿el permiso que otorga el Picker sobre una CARPETA
+     (scope drive.file) cubre archivos creados DESPUÉS por otra cuenta?
+
+     Uso (dos cuentas de Google, A = dueño, B = invitado):
+       1. Servir:  python3 -m http.server 8765   →  http://localhost:8765/spike.html
+          (el origen tiene que estar autorizado en el OAuth client)
+       2. Pegar CLIENT_ID / API_KEY / APP_ID y tocar «Guardar config».
+       3. Ventana normal, cuenta A: pasos A1–A3.
+       4. Ventana privada u otro perfil, cuenta B: B1 (debe FALLAR 403/404),
+          B2 (Picker), B3 (debe funcionar).
+       5. De vuelta en A: A4 (crea attachment-2.txt, POSTERIOR al pick de B).
+       6. En B: B4. Si B puede listar y bajar attachment-2.txt → SPIKE PASA
+          → la Fase E (adjuntos) va como está planeada.
+          Si falla → drive.file no propaga el grant de carpeta a hijos
+          nuevos → decidir fallback antes de construir adjuntos.
+     Esta página es una herramienta de desarrollo: no está en el shell del
+     service worker y no se linkea desde la app. -->
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spike drive.file</title>
+  <style>
+    body { font: 15px/1.45 system-ui, sans-serif; margin: 1.2rem auto; max-width: 720px; padding: 0 1rem; }
+    fieldset { margin: 0.8rem 0; border: 2px solid #ccc; border-radius: 8px; }
+    button { font: inherit; margin: 0.2rem 0.3rem 0.2rem 0; padding: 0.35rem 0.8rem; }
+    input { font: inherit; width: 100%; box-sizing: border-box; margin: 0.15rem 0; }
+    pre { background: #16211c; color: #c9e8d4; padding: 0.8rem; border-radius: 8px; white-space: pre-wrap; word-break: break-all; min-height: 8rem; }
+    .ok { color: #7ee2a8; } .err { color: #ff9d8f; }
+  </style>
+</head>
+<body>
+  <h1>Spike: drive.file + Picker de carpeta</h1>
+
+  <fieldset>
+    <legend>Config (Google Cloud Console)</legend>
+    <input id="clientId" placeholder="CLIENT_ID (…apps.googleusercontent.com)" />
+    <input id="apiKey" placeholder="API_KEY (clave de navegador, para el Picker)" />
+    <input id="appId" placeholder="APP_ID (número de proyecto)" />
+    <button id="save">Guardar config</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Cuenta A (dueño)</legend>
+    <button id="a1">A1 · Conectar A</button>
+    <button id="a2">A2 · Crear carpeta + travel.json + attachment-1.txt</button>
+    <input id="emailB" placeholder="email de la cuenta B" />
+    <button id="a3">A3 · Compartir carpeta con B</button>
+    <button id="a4">A4 · Crear attachment-2.txt (después del pick de B)</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Cuenta B (invitado — ventana privada)</legend>
+    <input id="fileIdB" placeholder="fileId de travel.json (lo imprime A2)" />
+    <button id="b1">B1 · Conectar B y leer por ID (debe fallar)</button>
+    <button id="b2">B2 · Elegir carpeta con Picker</button>
+    <button id="b3">B3 · Listar carpeta y bajar attachment-1</button>
+    <button id="b4">B4 · Re-listar y bajar attachment-2 (creado post-pick)</button>
+  </fieldset>
+
+  <pre id="log">Config y resultados quedan en localStorage de este origen.</pre>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://apis.google.com/js/api.js" async defer></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const logEl = $('log');
+    const log = (msg, cls) => {
+      const line = document.createElement('span');
+      line.textContent = msg + '\n';
+      if (cls) line.className = cls;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(msg);
+    };
+
+    const cfg = JSON.parse(localStorage.getItem('spike-cfg') || '{}');
+    const state = JSON.parse(localStorage.getItem('spike-state') || '{}');
+    const saveState = () => localStorage.setItem('spike-state', JSON.stringify(state));
+    ['clientId', 'apiKey', 'appId'].forEach((k) => { if (cfg[k]) $(k).value = cfg[k]; });
+    if (state.fileId) $('fileIdB').value = state.fileId;
+
+    $('save').onclick = () => {
+      ['clientId', 'apiKey', 'appId'].forEach((k) => { cfg[k] = $(k).value.trim(); });
+      localStorage.setItem('spike-cfg', JSON.stringify(cfg));
+      log('Config guardada.', 'ok');
+    };
+
+    let token = null;
+    const connect = () => new Promise((resolve, reject) => {
+      const tc = google.accounts.oauth2.initTokenClient({
+        client_id: cfg.clientId,
+        scope: 'https://www.googleapis.com/auth/drive.file',
+        callback: (r) => {
+          if (r.error) { reject(new Error(r.error)); return; }
+          token = r.access_token;
+          resolve();
+        },
+      });
+      tc.requestAccessToken({ prompt: 'select_account' });
+    });
+
+    const api = async (url, options = {}) => {
+      const res = await fetch(url, {
+        ...options,
+        headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`${res.status} ${await res.text().then((t) => t.slice(0, 200))}`);
+      return res;
+    };
+
+    const createFile = async (metadata, content, mime) => {
+      const boundary = 'spike' + Math.random().toString(36).slice(2);
+      const body = [
+        `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(metadata)}`,
+        `\r\n--${boundary}\r\nContent-Type: ${mime}\r\n\r\n${content}`,
+        `\r\n--${boundary}--`,
+      ].join('');
+      const res = await api(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name',
+        { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body },
+      );
+      return res.json();
+    };
+
+    const run = (label, fn) => async () => {
+      try { await fn(); } catch (e) { log(`${label} ERROR → ${e.message}`, 'err'); }
+    };
+
+    $('a1').onclick = run('A1', async () => {
+      await connect();
+      log('A1 OK: cuenta A conectada.', 'ok');
+    });
+
+    $('a2').onclick = run('A2', async () => {
+      const folderRes = await api('https://www.googleapis.com/drive/v3/files?fields=id,name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'spike-travel', mimeType: 'application/vnd.google-apps.folder' }),
+      });
+      const folder = await folderRes.json();
+      const file = await createFile(
+        { name: 'travel.json', parents: [folder.id] },
+        JSON.stringify({ spike: true, created: new Date().toISOString() }),
+        'application/json',
+      );
+      await createFile({ name: 'attachment-1.txt', parents: [folder.id] }, 'primer adjunto', 'text/plain');
+      state.folderId = folder.id;
+      state.fileId = file.id;
+      saveState();
+      $('fileIdB').value = file.id;
+      log(`A2 OK: folderId=${folder.id}`, 'ok');
+      log(`A2 OK: fileId(travel.json)=${file.id}  ← pegar en B`, 'ok');
+    });
+
+    $('a3').onclick = run('A3', async () => {
+      const email = $('emailB').value.trim();
+      if (!email) throw new Error('falta el email de B');
+      await api(`https://www.googleapis.com/drive/v3/files/${state.folderId}/permissions?sendNotificationEmail=false`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'user', role: 'writer', emailAddress: email }),
+      });
+      log(`A3 OK: carpeta compartida con ${email}.`, 'ok');
+    });
+
+    $('a4').onclick = run('A4', async () => {
+      await createFile({ name: 'attachment-2.txt', parents: [state.folderId] }, 'segundo adjunto (post-pick)', 'text/plain');
+      log('A4 OK: attachment-2.txt creado. Ahora B4 en la otra ventana.', 'ok');
+    });
+
+    $('b1').onclick = run('B1', async () => {
+      await connect();
+      const fileId = $('fileIdB').value.trim();
+      state.fileId = fileId; saveState();
+      try {
+        await api(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name`);
+        log('B1 INESPERADO: B pudo leer por ID sin Picker. (¿misma cuenta? ¿ya lo abrió antes?)', 'err');
+      } catch (e) {
+        log(`B1 OK (fallo esperado con drive.file): ${e.message.slice(0, 80)}`, 'ok');
+      }
+    });
+
+    $('b2').onclick = run('B2', async () => {
+      await new Promise((resolve, reject) => gapi.load('picker', { callback: resolve, onerror: reject }));
+      await new Promise((resolve) => {
+        const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+          .setIncludeFolders(true).setSelectFolderEnabled(true).setOwnedByMe(false);
+        new google.picker.PickerBuilder()
+          .setOAuthToken(token).setDeveloperKey(cfg.apiKey).setAppId(cfg.appId)
+          .addView(view)
+          .setCallback((d) => {
+            if (d.action === google.picker.Action.PICKED) {
+              state.pickedFolderId = d.docs[0].id; saveState();
+              log(`B2 OK: carpeta elegida ${d.docs[0].id}`, 'ok');
+              resolve();
+            } else if (d.action === google.picker.Action.CANCEL) { log('B2: cancelado'); resolve(); }
+          })
+          .build().setVisible(true);
+      });
+    });
+
+    const listAndDownload = async (wanted) => {
+      const q = encodeURIComponent(`'${state.pickedFolderId}' in parents and trashed = false`);
+      const res = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+      const { files } = await res.json();
+      log(`listado: ${files.map((f) => f.name).join(', ') || '(vacío)'}`);
+      const target = files.find((f) => f.name === wanted);
+      if (!target) throw new Error(`${wanted} no aparece en el listado`);
+      const body = await (await api(`https://www.googleapis.com/drive/v3/files/${target.id}?alt=media`)).text();
+      log(`descarga de ${wanted}: «${body}»`, 'ok');
+    };
+
+    $('b3').onclick = run('B3', async () => {
+      await listAndDownload('attachment-1.txt');
+      log('B3 OK.', 'ok');
+    });
+
+    $('b4').onclick = run('B4', async () => {
+      await listAndDownload('attachment-2.txt');
+      log('B4 OK → SPIKE PASA: el grant de carpeta cubre hijos creados después. Fase E habilitada.', 'ok');
+    });
+  </script>
+</body>
+</html>
