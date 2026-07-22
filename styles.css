@@ -1347,22 +1347,13 @@ button:focus-visible, a:focus-visible {
   font-size: 0.95rem;
 }
 
-.share-invite {
+.share-file-btn {
   display: flex;
-  gap: 0.5rem;
-  margin: 0.6rem 0 0.2rem;
-}
-
-.share-invite input {
-  flex: 1 1 auto;
-  min-width: 0;
-  border: 2px solid rgba(58, 44, 35, 0.35);
-  border-radius: 10px;
-  background: var(--cream);
-  padding: 0.35rem 0.6rem;
-  font: inherit;
-  font-size: 0.85rem;
-  color: var(--ink-soft);
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  margin: 0.2rem 0 0.4rem;
 }
 
 .share-add {

@@ -193,7 +193,26 @@ export const runSync = async () => {
     }
   } catch (err) {
     console.error('sync failed', err);
-    flash(errorLabel(err), true);
+    if (err.code === 'NO_ACCESS') {
+      // El dueño borró la carpeta, o te quitaron el permiso — por API son
+      // indistinguibles. Los datos locales están intactos: ofrecer quedarse
+      // con el viaje como local en vez de dejar el sync fallando para
+      // siempre. «Ahora no» cubre el caso de un permiso por restaurarse.
+      const keep = await askConfirm({
+        title: 'No se pudo acceder al viaje compartido',
+        body: 'Ya no existe o perdiste el acceso. Tus datos siguen en este ' +
+          'dispositivo: podés conservarlo como un viaje local (deja de sincronizar).',
+        acceptLabel: 'Conservar como local',
+      });
+      if (keep) {
+        sync.unshareTravel(v.id);
+        flash('Ahora es un viaje local');
+      } else {
+        flash(errorLabel(err), true);
+      }
+    } else {
+      flash(errorLabel(err), true);
+    }
   } finally {
     syncing = false;
     setTimeout(updateChip, 2600);
@@ -202,18 +221,48 @@ export const runSync = async () => {
 
 // ---------- diálogo de compartir ----------
 
-// El enlace lleva el fileId (una dirección, no una llave: Drive valida los
-// permisos de la cuenta que lo abre) más la config pública de la app
-// (client id / api key / nº de proyecto), para que el invitado no tenga que
-// configurar nada. Son identificadores públicos, no secretos.
-const inviteUrl = (rec) => {
+// La invitación es un ARCHIVO (<viaje>.travel.invite), no un enlace: en
+// iPhone los links jamás abren la PWA instalada, así que un único flujo
+// archivo → share sheet → «Unirse con una invitación» sirve para todos.
+// Lleva el fileId (una dirección, no una llave: Drive valida los permisos
+// de la cuenta que lo abre) más la config pública de la app, para que el
+// invitado no configure nada. Son identificadores públicos, no secretos.
+const INVITE_VERSION = 1;
+
+const slugName = (s) =>
+  s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'viaje';
+
+const shareInviteFile = async () => {
+  const v = store.activeVacation();
+  const rec = v && store.syncRecord(v.id);
+  if (!rec) return;
   const cfg = drive.getConfig();
-  const url = new URL(location.pathname, location.origin);
-  url.searchParams.set('join', rec.driveFileId);
-  if (cfg.clientId) url.searchParams.set('c', cfg.clientId);
-  if (cfg.apiKey) url.searchParams.set('k', cfg.apiKey);
-  if (cfg.appId) url.searchParams.set('a', cfg.appId);
-  return url.toString();
+  const invite = {
+    app: 'travel-42uy',
+    kind: 'invite',
+    version: INVITE_VERSION,
+    name: v.meta.name,
+    fileId: rec.driveFileId,
+    config: { clientId: cfg.clientId, apiKey: cfg.apiKey, appId: cfg.appId },
+  };
+  const filename = `${slugName(v.meta.name)}.travel.invite`;
+  const blob = new Blob([JSON.stringify(invite, null, 2)], { type: 'application/json' });
+  const file = new File([blob], filename, { type: 'application/json' });
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 };
 
 const showShareError = (err) => {
@@ -270,7 +319,6 @@ const renderShareDialog = () => {
   const canShare = rec.canShare !== false;
   $('share-owner').hidden = !canShare;
   $('share-member-hint').hidden = canShare;
-  if (canShare) $('share-link').value = inviteUrl(rec);
   const when = rec.lastSyncAt
     ? new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(rec.lastSyncAt))
     : 'nunca';
@@ -323,21 +371,6 @@ const addMember = async (e) => {
     form.reset();
     renderMembers(rec);
   } catch (err) { showShareError(err); }
-};
-
-const copyInvite = async () => {
-  const url = $('share-link').value;
-  try {
-    if (navigator.share) { await navigator.share({ url }); return; }
-  } catch { return; }
-  try {
-    await navigator.clipboard.writeText(url);
-    els.shareCopyBtn.textContent = '¡Copiado!';
-    setTimeout(() => { els.shareCopyBtn.textContent = 'Copiar'; }, 1600);
-  } catch {
-    $('share-link').focus();
-    $('share-link').select();
-  }
 };
 
 const stopSharing = async () => {
@@ -412,17 +445,33 @@ export const openAttachment = async (att) => {
       return;
     }
   }
-  const url = URL.createObjectURL(blob);
   if ((att.mimeType || '').startsWith('image/')) {
+    const url = URL.createObjectURL(blob);
     $('lightbox-img').src = url;
     $('dlg-photo').showModal();
-  } else {
-    const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return;
   }
+  // PDFs y otros: en la PWA instalada de iOS, blob: + _blank es poco fiable
+  // y no ofrece guardar; el share sheet nativo («Abrir en Archivos…») sí.
+  const file = new File([blob], att.name || 'adjunto', {
+    type: att.mimeType || 'application/octet-stream',
+  });
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return; // canceló el share sheet
+      // p. ej. gesto expirado tras la descarga: caer al ancla
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.click();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 };
 
@@ -436,12 +485,6 @@ export const removeAttachment = async (att) => {
 };
 
 // ---------- unirse por invitación ----------
-
-const stripJoinParam = () => {
-  const url = new URL(location.href);
-  for (const p of ['join', 'c', 'k', 'a']) url.searchParams.delete(p);
-  history.replaceState(null, '', url);
-};
 
 const showJoinError = (message) => {
   $('join-error').textContent = message;
@@ -462,7 +505,6 @@ const joinGo = async () => {
       : await sync.joinTravel(joinFileId);
     if (!travel) return; // canceló el selector
     els.dlgJoin.close();
-    stripJoinParam();
     flash(`Te uniste a «${travel.meta.name}»`);
   } catch (err) {
     console.error('join failed', err);
@@ -490,30 +532,44 @@ const joinGo = async () => {
   }
 };
 
-const handleJoinParam = async () => {
-  const params = new URLSearchParams(location.search);
-  const id = params.get('join');
-  if (!id) return;
-  if (!sync.validInviteFileId(id)) { stripJoinParam(); return; }
-  // Config pública embebida en la invitación: se adopta solo si este
-  // dispositivo todavía no tiene una propia.
-  const linkClientId = params.get('c');
-  if (linkClientId) {
-    await drive.loadConfig();
-    if (!drive.isConfigured() && linkClientId.endsWith('.apps.googleusercontent.com')) {
-      await drive.setConfig({
-        clientId: linkClientId,
-        apiKey: params.get('k') ?? '',
-        appId: params.get('a') ?? '',
-      });
-    }
+// Config pública embebida en la invitación: se adopta solo si este
+// dispositivo todavía no tiene una propia.
+const adoptInviteConfig = async (cfg) => {
+  const clientId = cfg?.clientId;
+  if (!clientId) return;
+  await drive.loadConfig();
+  if (!drive.isConfigured() && clientId.endsWith('.apps.googleusercontent.com')) {
+    await drive.setConfig({
+      clientId,
+      apiKey: cfg.apiKey ?? '',
+      appId: cfg.appId ?? '',
+    });
   }
-  joinFileId = id;
+};
+
+const openJoinDialog = (fileId, name) => {
+  joinFileId = fileId;
   joinMode = 'direct';
+  $('dlg-join-title').textContent = name ? `Te invitaron a «${name}»` : 'Te invitaron a un viaje';
   $('join-picker').hidden = true;
   $('join-error').hidden = true;
   els.joinGoBtn.textContent = 'Conectar y abrir';
   els.dlgJoin.showModal();
+};
+
+const inviteFileChosen = async (fileObj) => {
+  let data = null;
+  try { data = JSON.parse(await fileObj.text()); } catch {}
+  const valid = data &&
+    data.app === 'travel-42uy' &&
+    data.kind === 'invite' &&
+    sync.validInviteFileId(data.fileId);
+  if (!valid) {
+    notice('Invitación inválida', 'Ese archivo no es una invitación de esta app.');
+    return;
+  }
+  await adoptInviteConfig(data.config);
+  openJoinDialog(data.fileId, typeof data.name === 'string' ? data.name : '');
 };
 
 // ---------- arranque ----------
@@ -528,7 +584,6 @@ export const initShare = () => {
     dlgSetup: $('dlg-setup'),
     shareError: $('share-error'),
     shareBtnStart: $('btn-share-start'),
-    shareCopyBtn: $('btn-share-copy'),
     memberForm: $('form-member'),
     memberList: $('member-list'),
     joinGoBtn: $('btn-join-go'),
@@ -540,14 +595,25 @@ export const initShare = () => {
   $('btn-share-cancel').onclick = () => els.dlgShare.close();
   $('btn-share-close').onclick = () => els.dlgShare.close();
   $('btn-share-stop').onclick = () => stopSharing();
-  els.shareCopyBtn.onclick = () => copyInvite();
+  $('btn-share-file').onclick = () => shareInviteFile();
   els.memberForm.addEventListener('submit', addMember);
   els.dlgShare.onclick = (ev) => { if (ev.target === els.dlgShare) els.dlgShare.close(); };
   $('btn-setup-edit').onclick = () => ensureConfigured({ force: true }).catch(() => {});
   $('btn-setup-cancel').onclick = () => els.dlgSetup.close();
 
   els.joinGoBtn.onclick = () => joinGo();
-  $('btn-join-cancel').onclick = () => { els.dlgJoin.close(); stripJoinParam(); };
+  $('btn-join-cancel').onclick = () => els.dlgJoin.close();
+
+  $('btn-vac-join').onclick = () => {
+    $('dlg-vacations').close();
+    $('file-invite').click();
+  };
+  $('file-invite').onchange = () => {
+    const input = $('file-invite');
+    const file = input.files?.[0];
+    input.value = '';
+    if (file) inviteFileChosen(file);
+  };
 
   // Aviso al salir con cambios sin sincronizar (mejor esfuerzo; iOS no
   // siempre lo dispara — el chip queda como recordatorio persistente).
@@ -562,5 +628,4 @@ export const initShare = () => {
   store.subscribe(updateChip);
   updateChip();
   drive.loadConfig();
-  handleJoinParam();
 };

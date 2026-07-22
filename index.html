@@ -211,6 +211,7 @@
   <input type="file" id="file-import" accept="application/json,.json" hidden />
   <input type="file" id="file-append" accept="application/json,.json" hidden />
   <input type="file" id="file-attach" accept="image/*,application/pdf,.pdf" hidden />
+  <input type="file" id="file-invite" accept=".invite,application/json,text/plain" hidden />
 
   <dialog id="dlg-tools" class="drawer" aria-labelledby="drawer-title">
     <div class="drawer__handle" aria-hidden="true"></div>
@@ -413,6 +414,12 @@
         <small>Nombre, fechas y primera ciudad</small>
       </span>
     </button>
+    <button type="button" id="btn-vac-join" class="drawer__item vac-new">
+      <span class="drawer__icon" aria-hidden="true"><svg width="20" height="20"><use href="#i-people" /></svg></span>
+      <span class="drawer__label">Unirse con una invitación
+        <small>Abrí el archivo .travel.invite que te mandaron</small>
+      </span>
+    </button>
   </dialog>
 
   <template id="tpl-vac">
@@ -477,11 +484,6 @@
     <section id="share-on" hidden>
       <p id="share-status" class="dlg-sub"></p>
       <div id="share-owner">
-        <div class="share-invite">
-          <input id="share-link" type="text" readonly aria-label="Enlace de invitación" />
-          <button type="button" id="btn-share-copy" class="btn btn--small">Copiar</button>
-        </div>
-        <p class="field-hint">Invitá por email para dar permiso y pasales el enlace.</p>
         <form id="form-member" class="share-add">
           <input name="email" type="email" required placeholder="amiga@gmail.com" aria-label="Email de tu amigo" />
           <select name="role" aria-label="Permiso">
@@ -490,6 +492,13 @@
           </select>
           <button type="submit" class="btn btn--small btn--primary">Invitar</button>
         </form>
+        <p class="field-hint">1) Invitá por email para darle permiso.
+        2) Mandale el archivo de invitación por donde quieras (WhatsApp,
+        mail…): lo abre desde «Unirse con una invitación».</p>
+        <button type="button" id="btn-share-file" class="btn btn--primary share-file-btn">
+          <svg width="16" height="16" aria-hidden="true"><use href="#i-export" /></svg>
+          Enviar archivo de invitación
+        </button>
       </div>
       <p id="share-member-hint" class="field-hint" hidden>Solo quien compartió
       el viaje puede invitar gente o cambiar permisos.</p>
