@@ -350,15 +350,19 @@
 
       <div class="field-row">
         <label class="field">
-          <span>Desde</span>
+          <span id="lbl-start">Desde</span>
           <input name="start" type="date" required />
         </label>
-        <label class="field">
+        <label class="field" id="field-end">
           <span>Hasta</span>
           <input name="end" type="date" />
         </label>
+        <label class="field" id="field-time" hidden>
+          <span>Hora</span>
+          <input name="time" type="time" />
+        </label>
       </div>
-      <p class="field-hint">Dejá «Hasta» vacío si es por el día.</p>
+      <p class="field-hint" id="hint-dates">Dejá «Hasta» vacío si es por el día.</p>
 
       <label class="field field--grow">
         <span>Descripción</span>

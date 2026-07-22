@@ -15,6 +15,10 @@ const KINDS = {
   otro: 'Otro',
 };
 
+// Solo estas clases son rangos (Desde/Hasta); el resto es fecha + hora opcional.
+const RANGE_KINDS = new Set(['viaje', 'otro']);
+const isRangeKind = (kind) => RANGE_KINDS.has(kind);
+
 const $ = (id) => document.getElementById(id);
 const els = {
   cards: $('cards'),
@@ -72,7 +76,10 @@ const tripDayNum = (s) =>
   Math.round((parseDate(s) - parseDate(trip().meta.start)) / 86400000) + 1;
 
 const fmtRange = (act) => {
-  if (!act.end || act.end === act.start) return `${fmtDay.format(parseDate(act.start))} · por el día`;
+  if (!act.end || act.end === act.start) {
+    const day = fmtDay.format(parseDate(act.start));
+    return act.time ? `${day} · ${act.time}` : `${day} · por el día`;
+  }
   return `${fmtDay.format(parseDate(act.start))} → ${fmtDay.format(parseDate(act.end))}`;
 };
 
@@ -92,7 +99,9 @@ const sorted = () => {
   const v = trip();
   if (!v) return [];
   return alive(v.activities).sort(
-    (x, y) => x.start.localeCompare(y.start) || (x.end || x.start).localeCompare(y.end || y.start)
+    (x, y) => x.start.localeCompare(y.start) ||
+      (x.time || '').localeCompare(y.time || '') ||
+      (x.end || x.start).localeCompare(y.end || y.start)
   );
 };
 
@@ -247,6 +256,21 @@ const showFormError = (msg) => {
   els.formError.hidden = false;
 };
 
+// Alterna Desde/Hasta vs Fecha/Hora según el tipo elegido.
+const syncFormKind = () => {
+  const range = isRangeKind(els.form.elements.kind.value);
+  $('lbl-start').textContent = range ? 'Desde' : 'Fecha';
+  $('field-end').hidden = !range;
+  $('field-time').hidden = range;
+  $('hint-dates').textContent = range
+    ? 'Dejá «Hasta» vacío si es por el día.'
+    : 'La hora es opcional.';
+};
+
+els.form.addEventListener('change', (e) => {
+  if (e.target.name === 'kind') syncFormKind();
+});
+
 const openForm = (act) => {
   const v = trip();
   editingId = act?.id ?? null;
@@ -263,8 +287,10 @@ const openForm = (act) => {
   f.elements.city.value = act?.city ?? '';
   f.elements.start.value = act?.start ?? '';
   f.elements.end.value = act?.end ?? '';
+  f.elements.time.value = act?.time ?? '';
   f.elements.desc.value = act?.desc ?? '';
   f.elements.kind.value = act?.kind ?? 'viaje';
+  syncFormKind();
   els.dlgForm.showModal();
 };
 
@@ -277,9 +303,10 @@ els.form.addEventListener('submit', (e) => {
   const title = f.elements.title.value.trim();
   const cityName = f.elements.city.value.trim();
   const start = f.elements.start.value;
-  let end = f.elements.end.value || '';
   const desc = f.elements.desc.value.trim();
   const kind = f.elements.kind.value;
+  let end = isRangeKind(kind) ? f.elements.end.value || '' : '';
+  const time = isRangeKind(kind) ? '' : f.elements.time.value || '';
   // El formulario ya no edita fotos: se conservan las existentes (importadas).
   const photos = editingId
     ? v.activities.find((a) => a.id === editingId)?.photos ?? []
@@ -310,6 +337,7 @@ els.form.addEventListener('submit', (e) => {
     lon: city.lon,
     start,
     end: end && end !== start ? end : '',
+    time,
     desc,
     photos,
   };
@@ -649,10 +677,11 @@ const exportJson = async () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 };
 
-const exportActivity = ({ id, kind, title, city, lat, lon, start, end, desc, photos }) =>
-  ({ id, kind, title, city, lat, lon, start, end, desc, photos });
+const exportActivity = ({ id, kind, title, city, lat, lon, start, end, time, desc, photos }) =>
+  ({ id, kind, title, city, lat, lon, start, end, time: time ?? '', desc, photos });
 
 const isIsoDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+const isTime = (s) => typeof s === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
 
 const validActivity = (a) => {
   const v = trip();
@@ -660,20 +689,24 @@ const validActivity = (a) => {
     typeof a.title === 'string' && typeof a.city === 'string' &&
     typeof a.lat === 'number' && typeof a.lon === 'number' &&
     isIsoDate(a.start) && a.start >= v.meta.start && a.start <= v.meta.end &&
-    (a.end == null || a.end === '' || isIsoDate(a.end));
+    (a.end == null || a.end === '' || isIsoDate(a.end)) &&
+    (a.time == null || a.time === '' || isTime(a.time));
 };
 
 const sanitizeActivity = (a) => {
   const v = trip();
+  const kind = KINDS[a.kind] ? a.kind : 'otro';
   return {
     id: crypto.randomUUID(),
-    kind: KINDS[a.kind] ? a.kind : 'otro',
+    kind,
     title: a.title,
     city: a.city,
     lat: a.lat,
     lon: a.lon,
     start: a.start,
-    end: isIsoDate(a.end) && a.end !== a.start ? (a.end > v.meta.end ? v.meta.end : a.end) : '',
+    end: isRangeKind(kind) && isIsoDate(a.end) && a.end !== a.start
+      ? (a.end > v.meta.end ? v.meta.end : a.end) : '',
+    time: !isRangeKind(kind) && isTime(a.time) ? a.time : '',
     desc: typeof a.desc === 'string' ? a.desc : '',
     photos: Array.isArray(a.photos) ? a.photos.filter((p) => typeof p === 'string' && /^https?:\/\//i.test(p)) : [],
   };
@@ -743,11 +776,12 @@ const buildGptPrompt = () => {
     '',
     'Ayudame a planificar paradas: escapadas de varios días, visitas por el día, museos, comida y lugares para fotografiar. Charlemos lo que haga falta; cuando yo escriba «exportar», respondé ÚNICAMENTE con un JSON válido (sin markdown, sin texto extra) con exactamente esta forma:',
     '',
-    '{"app":"travel-42uy","version":2,"activities":[{"title":"Escapada a la costa","kind":"viaje","city":"Benidorm","lat":38.5342,"lon":-0.1314,"start":"2026-12-10","end":"2026-12-13","desc":"Playa y casco antiguo.","photos":[]}]}',
+    '{"app":"travel-42uy","version":2,"activities":[{"title":"Escapada a la costa","kind":"viaje","city":"Benidorm","lat":38.5342,"lon":-0.1314,"start":"2026-12-10","end":"2026-12-13","time":"","desc":"Playa y casco antiguo.","photos":[]},{"title":"Museo del Prado","kind":"museo","city":"Madrid","lat":40.4138,"lon":-3.6921,"start":"2026-12-14","end":"","time":"10:30","desc":"Colección permanente.","photos":[]}]}',
     '',
     'Reglas del JSON:',
     '- "kind" es uno de: "viaje", "museo", "foto", "comida", "teatro", "recital", "otro".',
     '- "start"/"end" en formato YYYY-MM-DD, dentro del viaje. Si es por el día, "end":"".',
+    '- Solo "viaje" y "otro" pueden tener "end"; el resto lleva "end":"" y opcionalmente "time":"HH:MM" (24 h).',
     '- "lat"/"lon" numéricos reales del centro de la ciudad, con 4 decimales.',
     '- "photos" siempre [].',
     '- "desc" corta, en español.',
