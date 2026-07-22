@@ -112,35 +112,53 @@ button {
   color: var(--terra);
   letter-spacing: 0.01em;
   text-transform: uppercase;
-  text-wrap: balance;
+  min-width: 0;
 }
+
+/* el h1 envuelve el botón que abre el selector de viajes */
+.hdr__switch {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+
+.hdr__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.hdr__title {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hdr__chev { flex: none; color: var(--terra); }
 
 .hdr__sub {
+  display: block;
   margin: 0.1rem 0 0;
   color: var(--ink-soft);
+  font-family: 'Alegreya Sans', system-ui, sans-serif;
   font-size: 0.9rem;
-}
-
-.hdr__sub strong { color: var(--terra-dark); }
-
-.hdr__hist { display: flex; gap: 0.4rem; }
-
-.btn-hist {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 2px solid var(--terra);
-  background: var(--cream);
-  color: var(--terra);
-  font-size: 1.35rem;
-  line-height: 1;
-  box-shadow: 0 2px 0 rgba(58, 44, 35, 0.2);
-}
-
-.btn-hist:disabled {
-  opacity: 0.35;
-  cursor: default;
-  box-shadow: none;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------- layout ---------- */
@@ -470,6 +488,16 @@ main {
   padding: 1.4rem 1.2rem;
   text-align: center;
   color: var(--ink-soft);
+}
+
+.welcome { margin-top: 1.2rem; padding: 2.2rem 1.4rem; }
+
+.welcome__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 1rem;
+  font-size: 1.02rem;
 }
 
 .empty__big {
@@ -847,6 +875,35 @@ main {
   margin-bottom: 0.7rem;
 }
 
+.drawer__hist {
+  display: flex;
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+}
+
+.drawer__hist-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  background: var(--cream);
+  color: var(--terra);
+  border: 2px solid var(--terra);
+  border-radius: 12px;
+  padding: 0.55rem 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 2px 0 rgba(58, 44, 35, 0.2);
+}
+
+.drawer__hist-btn:active:not(:disabled) { translate: 0 1px; box-shadow: none; }
+
+.drawer__hist-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  box-shadow: none;
+}
+
 .drawer__list {
   display: flex;
   flex-direction: column;
@@ -890,6 +947,75 @@ main {
   font-size: 0.8rem;
   color: var(--ink-soft);
 }
+
+/* ---------- selector de viajes ---------- */
+
+.vac-list {
+  list-style: none;
+  margin: 0 0 0.55rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.vac {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.vac__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: left;
+  background: var(--cream);
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  padding: 0.55rem 0.8rem;
+  box-shadow: 0 2px 0 rgba(58, 44, 35, 0.2);
+}
+
+.vac__main:active { translate: 0 1px; box-shadow: none; }
+
+.vac--active .vac__main {
+  border-color: var(--terra);
+  box-shadow: 0 2px 0 var(--terra-dark);
+}
+
+.vac--active .vac__name { color: var(--terra); }
+
+.vac__name {
+  font-family: 'Alegreya', Georgia, serif;
+  font-weight: 800;
+  font-size: 1.05rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vac__sub {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.vac__del {
+  flex: none;
+  width: 44px;
+  display: grid;
+  place-items: center;
+  background: var(--cream);
+  color: var(--terra-dark);
+  border: 2px solid var(--terra-dark);
+  border-radius: 12px;
+  box-shadow: 0 2px 0 rgba(58, 44, 35, 0.2);
+}
+
+.vac__del:active { translate: 0 1px; box-shadow: none; }
 
 /* ---------- lightbox de fotos ---------- */
 

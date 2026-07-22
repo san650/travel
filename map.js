@@ -13,6 +13,7 @@ const KIND_COLORS = {
 
 let map = null;
 let baseLatLng = null;
+let homeMarker = null;
 let markersLayer = null;
 let routeLayer = null;
 let markerById = new Map();
@@ -62,21 +63,32 @@ const pinIcon = (label, kind, extraClass) =>
     iconAnchor: extraClass === 'mk--home' ? [17, 17] : [15, 29],
   });
 
-export const initMap = (el, base) => {
-  baseLatLng = base;
+export const initMap = (el) => {
   map = L.map(el, { zoomControl: true, attributionControl: true });
-  map.setView([base.lat, base.lon], 8);
+  map.setView([25, -10], 2);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '© OpenStreetMap',
   }).addTo(map);
   markersLayer = L.layerGroup().addTo(map);
   routeLayer = L.layerGroup().addTo(map);
-  L.marker([base.lat, base.lon], {
-    icon: pinIcon(null, null, 'mk--home'),
-    zIndexOffset: 500,
-    keyboard: false,
-  }).addTo(map);
+};
+
+// Mueve la base (marcador "casa") al cambiar de viaje.
+export const setBase = (base) => {
+  if (baseLatLng && baseLatLng.lat === base.lat && baseLatLng.lon === base.lon) return;
+  baseLatLng = base;
+  didFit = false;
+  if (homeMarker) {
+    homeMarker.setLatLng([base.lat, base.lon]);
+  } else {
+    homeMarker = L.marker([base.lat, base.lon], {
+      icon: pinIcon(null, null, 'mk--home'),
+      zIndexOffset: 500,
+      keyboard: false,
+    }).addTo(map);
+  }
+  map.setView([base.lat, base.lon], 8);
 };
 
 export const renderMarkers = (activities, activeId, onTap) => {
@@ -105,7 +117,7 @@ export const renderMarkers = (activities, activeId, onTap) => {
     }).addTo(markersLayer);
   }
 
-  if (!didFit && activities.length) {
+  if (!didFit && activities.length && baseLatLng) {
     didFit = true;
     const bounds = L.latLngBounds([
       [baseLatLng.lat, baseLatLng.lon],

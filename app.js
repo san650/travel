@@ -1,4 +1,4 @@
-import { store, TRIP } from './store.js';
+import { store } from './store.js';
 import { makeCommand } from './commands.js';
 import { CITIES, findCity } from './cities.js';
 import * as tripMap from './map.js';
@@ -42,10 +42,23 @@ const els = {
   dlgGpt: $('dlg-gpt'),
   gptPrompt: $('gpt-prompt'),
   gptCopy: $('btn-gpt-copy'),
+  welcome: $('welcome'),
+  mapCard: $('map-card'),
+  timeline: $('timeline'),
+  tripName: document.querySelector('[data-slot="trip-name"]'),
+  tripSub: document.querySelector('[data-slot="trip-sub"]'),
+  btnVacations: $('btn-vacations'),
+  dlgVacs: $('dlg-vacations'),
+  vacList: $('vac-list'),
+  dlgVacForm: $('dlg-vacation'),
+  vacForm: $('form-vacation'),
+  vacError: $('vac-error'),
 };
 
 const cloneTpl = (id) => $(id).content.firstElementChild.cloneNode(true);
 const slot = (node, name) => node.querySelector(`[data-slot="${name}"]`);
+
+const trip = () => store.activeVacation();
 
 // ---------- fechas ----------
 
@@ -55,9 +68,10 @@ const parseDate = (s) => {
 };
 
 const fmtDay = new Intl.DateTimeFormat('es', { weekday: 'short', day: 'numeric', month: 'short' });
+const fmtShort = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', year: '2-digit' });
 
 const tripDayNum = (s) =>
-  Math.round((parseDate(s) - parseDate(TRIP.start)) / 86400000) + 1;
+  Math.round((parseDate(s) - parseDate(trip().start)) / 86400000) + 1;
 
 const fmtRange = (act) => {
   if (!act.end || act.end === act.start) return `${fmtDay.format(parseDate(act.start))} · por el día`;
@@ -70,24 +84,31 @@ const fmtTripDays = (act) => {
   return a === b ? `Día ${a} del viaje` : `Días ${a}–${b} del viaje`;
 };
 
+const fmtTripRange = (v) =>
+  `${fmtShort.format(parseDate(v.start))} → ${fmtShort.format(parseDate(v.end))}`;
+
 // ---------- selección + ruta ----------
 
 let selectedId = null;
-const sorted = () =>
-  [...store.state.doc.activities].sort(
+const sorted = () => {
+  const v = trip();
+  if (!v) return [];
+  return [...v.activities].sort(
     (x, y) => x.start.localeCompare(y.start) || (x.end || x.start).localeCompare(y.end || y.start)
   );
+};
 
 const routeText = (act) => {
-  const km = tripMap.haversineKm(TRIP.base, act);
+  const base = trip().base;
+  const km = tripMap.haversineKm(base, act);
   const roadKm = Math.round(km * 1.25);
   const mins = Math.round((roadKm / 85) * 60);
   const time = mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
-  return `${TRIP.base.name} → ${act.city} · ~${roadKm} km · ~${time} en auto`;
+  return `${base.name} → ${act.city} · ~${roadKm} km · ~${time} en auto`;
 };
 
 const showRouteFor = (act, { fit } = {}) => {
-  tripMap.showRoute(TRIP.base, act, { fit });
+  tripMap.showRoute(trip().base, act, { fit });
   els.routeText.textContent = routeText(act);
   els.routeInfo.hidden = false;
 };
@@ -146,7 +167,96 @@ els.dlgConfirm.addEventListener('close', () => { if (confirmResolver) settleConf
 // elementos no interactivos si tienen la propiedad onclick o cursor:pointer.
 els.dlgConfirm.onclick = (ev) => { if (ev.target === els.dlgConfirm) settleConfirm(false); };
 
-// ---------- formulario ----------
+// ---------- vacaciones ----------
+
+const resetView = () => {
+  selectedId = null;
+  selectedDay = null;
+  animated.clear();
+  hideRoute();
+};
+
+const renderVacList = () => {
+  const { vacations, activeId } = store.state.doc;
+  els.vacList.replaceChildren(...vacations.map((v) => {
+    const li = cloneTpl('tpl-vac');
+    if (v.id === activeId) li.classList.add('vac--active');
+    slot(li, 'name').textContent = v.name;
+    const n = v.activities.length;
+    slot(li, 'sub').textContent =
+      `${fmtTripRange(v)} · base ${v.base.name} · ${n === 1 ? '1 parada' : `${n} paradas`}`;
+    slot(li, 'open').onclick = () => {
+      els.dlgVacs.close();
+      if (v.id !== activeId) {
+        resetView();
+        store.switchVacation(v.id);
+      }
+    };
+    slot(li, 'delete').onclick = async () => {
+      const ok = await askConfirm({
+        title: `¿Borrar «${v.name}»?`,
+        body: 'Se pierden todas sus paradas. No se puede deshacer.',
+      });
+      if (!ok) return;
+      resetView();
+      store.deleteVacation(v.id);
+      renderVacList();
+      if (!store.state.doc.vacations.length) els.dlgVacs.close();
+    };
+    return li;
+  }));
+};
+
+const openVacsDrawer = () => {
+  renderVacList();
+  els.dlgVacs.showModal();
+};
+
+const showVacError = (msg) => {
+  els.vacError.textContent = msg;
+  els.vacError.hidden = false;
+};
+
+const openVacForm = () => {
+  els.vacError.hidden = true;
+  els.vacForm.reset();
+  els.dlgVacForm.showModal();
+};
+
+els.vacForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = els.vacForm;
+  const name = f.elements.name.value.trim();
+  const start = f.elements.start.value;
+  const end = f.elements.end.value;
+  const baseName = f.elements.base.value.trim();
+
+  if (!name) return showVacError('Falta el nombre del viaje.');
+  if (!start) return showVacError('Falta la fecha de inicio.');
+  if (!end) return showVacError('Falta la fecha de fin.');
+  if (end < start) return showVacError('El viaje no puede terminar antes de empezar.');
+  const city = findCity(baseName);
+  if (!city) return showVacError(`No conozco «${baseName}». Elegí una ciudad de la lista.`);
+
+  const vacation = {
+    id: crypto.randomUUID(),
+    name,
+    start,
+    end,
+    base: { name: city.name, lat: city.lat, lon: city.lon },
+    activities: [],
+  };
+
+  els.dlgVacForm.close();
+  // Diferido un tick: iOS todavía está desmontando el picker nativo de fecha
+  // cuando dispara submit; reconstruir el DOM en el mismo frame lo hace parpadear.
+  setTimeout(() => {
+    resetView();
+    store.createVacation(vacation);
+  }, 0);
+});
+
+// ---------- formulario de paradas ----------
 
 let editingId = null;
 
@@ -156,12 +266,17 @@ const showFormError = (msg) => {
 };
 
 const openForm = (act) => {
+  const v = trip();
   editingId = act?.id ?? null;
-  els.formTitle.textContent = act ? 'Editar parada' : 'Nueva parada';
+  els.formTitle.textContent = act ? 'Editar actividad' : 'Nueva actividad';
   els.formSubmit.textContent = act ? 'Guardar cambios' : 'Añadir al viaje';
   els.formError.hidden = true;
   const f = els.form;
   f.reset();
+  f.elements.start.min = v.start;
+  f.elements.start.max = v.end;
+  f.elements.end.min = v.start;
+  f.elements.end.max = v.end;
   f.elements.title.value = act?.title ?? '';
   f.elements.city.value = act?.city ?? '';
   f.elements.start.value = act?.start ?? '';
@@ -175,6 +290,7 @@ els.formCancel.onclick = () => els.dlgForm.close();
 
 els.form.addEventListener('submit', (e) => {
   e.preventDefault();
+  const v = trip();
   const f = els.form;
   const title = f.elements.title.value.trim();
   const cityName = f.elements.city.value.trim();
@@ -184,7 +300,7 @@ els.form.addEventListener('submit', (e) => {
   const kind = f.elements.kind.value;
   // El formulario ya no edita fotos: se conservan las existentes (importadas).
   const photos = editingId
-    ? store.state.doc.activities.find((a) => a.id === editingId)?.photos ?? []
+    ? v.activities.find((a) => a.id === editingId)?.photos ?? []
     : [];
 
   if (!title) return showFormError('Falta el título.');
@@ -192,16 +308,16 @@ els.form.addEventListener('submit', (e) => {
   if (!city && editingId) {
     // Paradas importadas pueden traer ciudades fuera del gazetteer; si el
     // nombre no cambió, conservamos sus coordenadas originales.
-    const orig = store.state.doc.activities.find((a) => a.id === editingId);
+    const orig = v.activities.find((a) => a.id === editingId);
     if (orig && orig.city === cityName) city = { name: orig.city, lat: orig.lat, lon: orig.lon };
   }
   if (!city) return showFormError(`No conozco «${cityName}». Elegí una ciudad de la lista.`);
   if (!start) return showFormError('Falta la fecha de inicio.');
-  if (start < TRIP.start || start > TRIP.end) {
-    return showFormError('Esa fecha cae fuera del viaje (31 oct 2026 – 4 ene 2027).');
+  if (start < v.start || start > v.end) {
+    return showFormError(`Esa fecha cae fuera del viaje (${fmtTripRange(v)}).`);
   }
   if (end && end < start) end = start;
-  if (end && end > TRIP.end) end = TRIP.end;
+  if (end && end > v.end) end = v.end;
 
   const activity = {
     id: editingId ?? crypto.randomUUID(),
@@ -222,7 +338,7 @@ els.form.addEventListener('submit', (e) => {
   // cuando dispara submit; reconstruir el DOM en el mismo frame lo hace parpadear.
   setTimeout(() => {
     if (targetId) {
-      const from = store.state.doc.activities.find((a) => a.id === targetId);
+      const from = trip()?.activities.find((a) => a.id === targetId);
       if (!from) return;
       store.dispatch(makeCommand('UPDATE_ACTIVITY', { id: targetId, from, to: activity }));
     } else {
@@ -304,7 +420,7 @@ const renderCards = () => {
         body: 'Podés deshacerlo con ↶.',
       });
       if (!ok) return;
-      const index = store.state.doc.activities.findIndex((a) => a.id === act.id);
+      const index = trip().activities.findIndex((a) => a.id === act.id);
       store.dispatch(makeCommand('REMOVE_ACTIVITY', { activity: act, index }));
     };
 
@@ -369,24 +485,27 @@ const openDayDrawer = (dayActs) => {
 };
 
 const renderCalendar = () => {
+  const v = trip();
   const acts = sorted();
   const dayMap = buildDayMap(acts);
   const box = $('cal-months');
   const todayIso = toIso(new Date());
-  const first = parseDate(TRIP.start);
-  const last = parseDate(TRIP.end);
+  const first = parseDate(v.start);
+  const last = parseDate(v.end);
 
   const months = [];
   for (let m = new Date(first.getFullYear(), first.getMonth(), 1); m <= last; m = new Date(m.getFullYear(), m.getMonth() + 1, 1)) {
-    // Meses con un solo día de viaje (octubre: solo la llegada) no se muestran.
+    // Meses con un solo día de viaje (p. ej. solo la llegada) no se muestran,
+    // salvo que el viaje entero quepa en un único mes.
     const daysInMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
     let tripDays = 0;
     for (let day = 1; day <= daysInMonth; day++) {
       const iso = toIso(new Date(m.getFullYear(), m.getMonth(), day));
-      if (iso >= TRIP.start && iso <= TRIP.end) tripDays++;
+      if (iso >= v.start && iso <= v.end) tripDays++;
     }
     if (tripDays > 1) months.push(m);
   }
+  if (!months.length) months.push(new Date(first.getFullYear(), first.getMonth(), 1));
 
   box.replaceChildren(...months.map((m0) => {
     const card = el('div', 'cal-month');
@@ -399,7 +518,7 @@ const renderCalendar = () => {
     const daysInMonth = new Date(m0.getFullYear(), m0.getMonth() + 1, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
       const iso = toIso(new Date(m0.getFullYear(), m0.getMonth(), day));
-      const inTrip = iso >= TRIP.start && iso <= TRIP.end;
+      const inTrip = iso >= v.start && iso <= v.end;
       const dayActs = dayMap.get(iso) ?? [];
       const cell = el('button', 'cal-day');
       cell.type = 'button';
@@ -441,7 +560,37 @@ const setView = (mode) => {
   render();
 };
 
+let wasInApp = false;
+
 const render = () => {
+  const v = trip();
+  const inApp = Boolean(v);
+
+  els.welcome.hidden = inApp;
+  els.mapCard.hidden = !inApp;
+  els.timeline.hidden = !inApp;
+  els.fab.hidden = !inApp;
+  els.fabTools.hidden = !inApp;
+  els.tripName.textContent = v ? v.name : 'Travel';
+  els.tripSub.textContent = v
+    ? `${fmtTripRange(v)} · base ${v.base.name}`
+    : 'Planificá tus vacaciones';
+  els.banner.hidden = !store.persistError;
+
+  if (!inApp) {
+    wasInApp = false;
+    els.undo.disabled = true;
+    els.redo.disabled = true;
+    return;
+  }
+
+  tripMap.setBase(v.base);
+  if (!wasInApp) {
+    wasInApp = true;
+    // El mapa pudo inicializarse oculto (modo bienvenida): recalcular tamaño.
+    requestAnimationFrame(() => tripMap.invalidateSize());
+  }
+
   const acts = sorted();
   if (selectedId && !acts.some((a) => a.id === selectedId)) {
     selectedId = null;
@@ -458,21 +607,26 @@ const render = () => {
   if (sel) showRouteFor(sel, { fit: false });
   els.undo.disabled = !store.canUndo();
   els.redo.disabled = !store.canRedo();
-  els.banner.hidden = !store.persistError;
 };
 
 // ---------- exportar / importar ----------
 
+const slug = (s) =>
+  s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'viaje';
+
 const exportJson = async () => {
+  const v = trip();
+  if (!v) return;
   const data = {
     app: 'travel-42uy',
-    version: 1,
-    trip: TRIP,
+    version: 2,
+    trip: { name: v.name, start: v.start, end: v.end, base: v.base },
     exportedAt: new Date().toISOString(),
-    activities: store.state.doc.activities,
+    activities: v.activities,
   };
   const text = JSON.stringify(data, null, 2);
-  const filename = 'travel-espana-2027.json';
+  const filename = `travel-${slug(v.name)}.json`;
   const blob = new Blob([text], { type: 'application/json' });
   try {
     const file = new File([blob], filename, { type: 'application/json' });
@@ -490,25 +644,30 @@ const exportJson = async () => {
 
 const isIsoDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
-const validActivity = (a) =>
-  a && typeof a === 'object' &&
-  typeof a.title === 'string' && typeof a.city === 'string' &&
-  typeof a.lat === 'number' && typeof a.lon === 'number' &&
-  isIsoDate(a.start) && a.start >= TRIP.start && a.start <= TRIP.end &&
-  (a.end == null || a.end === '' || isIsoDate(a.end));
+const validActivity = (a) => {
+  const v = trip();
+  return a && typeof a === 'object' &&
+    typeof a.title === 'string' && typeof a.city === 'string' &&
+    typeof a.lat === 'number' && typeof a.lon === 'number' &&
+    isIsoDate(a.start) && a.start >= v.start && a.start <= v.end &&
+    (a.end == null || a.end === '' || isIsoDate(a.end));
+};
 
-const sanitizeActivity = (a) => ({
-  id: crypto.randomUUID(),
-  kind: KINDS[a.kind] ? a.kind : 'otro',
-  title: a.title,
-  city: a.city,
-  lat: a.lat,
-  lon: a.lon,
-  start: a.start,
-  end: isIsoDate(a.end) && a.end !== a.start ? (a.end > TRIP.end ? TRIP.end : a.end) : '',
-  desc: typeof a.desc === 'string' ? a.desc : '',
-  photos: Array.isArray(a.photos) ? a.photos.filter((p) => typeof p === 'string' && /^https?:\/\//i.test(p)) : [],
-});
+const sanitizeActivity = (a) => {
+  const v = trip();
+  return {
+    id: crypto.randomUUID(),
+    kind: KINDS[a.kind] ? a.kind : 'otro',
+    title: a.title,
+    city: a.city,
+    lat: a.lat,
+    lon: a.lon,
+    start: a.start,
+    end: isIsoDate(a.end) && a.end !== a.start ? (a.end > v.end ? v.end : a.end) : '',
+    desc: typeof a.desc === 'string' ? a.desc : '',
+    photos: Array.isArray(a.photos) ? a.photos.filter((p) => typeof p === 'string' && /^https?:\/\//i.test(p)) : [],
+  };
+};
 
 const parseActivitiesFile = async (file) => {
   let data;
@@ -540,7 +699,7 @@ const importJson = async (file) => {
   });
   if (!ok) return;
   animated.clear();
-  store.replaceAll(list.map(sanitizeActivity));
+  store.replaceActivities(list.map(sanitizeActivity));
 };
 
 const importAppend = async (file) => {
@@ -558,19 +717,20 @@ const importAppend = async (file) => {
 // ---------- ChatGPT ----------
 
 const buildGptPrompt = () => {
+  const v = trip();
   const acts = sorted();
   const occupied = acts.length
     ? acts.map((a) => `${a.start}${a.end ? `→${a.end}` : ''} (${a.city})`).join(', ')
     : '(ninguna por ahora)';
   return [
-    'Sos mi asistente para organizar un viaje a España. Contexto:',
-    '- Estadía: del 2026-10-31 al 2027-01-04 (fechas fijas).',
-    '- Base: Paterna, Valencia — vuelvo a dormir ahí salvo escapadas con noche.',
+    `Sos mi asistente para organizar un viaje: «${v.name}». Contexto:`,
+    `- Estadía: del ${v.start} al ${v.end} (fechas fijas).`,
+    `- Base: ${v.base.name} — vuelvo a dormir ahí salvo escapadas con noche.`,
     '- Me encanta la fotografía: proponé spots de fotos (miradores, atardeceres, cascos antiguos).',
     '',
     'Ayudame a planificar paradas: escapadas de varios días, visitas por el día, museos, comida y lugares para fotografiar. Charlemos lo que haga falta; cuando yo escriba «exportar», respondé ÚNICAMENTE con un JSON válido (sin markdown, sin texto extra) con exactamente esta forma:',
     '',
-    '{"app":"travel-42uy","version":1,"activities":[{"title":"Escapada a Benidorm","kind":"viaje","city":"Benidorm","lat":38.5342,"lon":-0.1314,"start":"2026-12-10","end":"2026-12-13","desc":"Playa de Levante y casco antiguo.","photos":[]}]}',
+    '{"app":"travel-42uy","version":2,"activities":[{"title":"Escapada a la costa","kind":"viaje","city":"Benidorm","lat":38.5342,"lon":-0.1314,"start":"2026-12-10","end":"2026-12-13","desc":"Playa y casco antiguo.","photos":[]}]}',
     '',
     'Reglas del JSON:',
     '- "kind" es uno de: "viaje", "museo", "foto", "comida", "teatro", "recital", "otro".',
@@ -628,7 +788,7 @@ const wireSwReload = () => {
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.addEventListener('message', (e) => {
     if (!e.data || e.data.type !== 'RELOAD') return;
-    if (isEditableTarget(document.activeElement) || els.dlgForm.open) {
+    if (isEditableTarget(document.activeElement) || els.dlgForm.open || els.dlgVacForm.open) {
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') doReload();
       });
@@ -648,13 +808,19 @@ const start = async () => {
     datalist.appendChild(opt);
   }
 
-  tripMap.initMap($('map'), TRIP.base);
+  tripMap.initMap($('map'));
 
   els.fab.onclick = () => openForm(null);
   $('btn-view-list').onclick = () => setView('list');
   $('btn-view-cal').onclick = () => setView('cal');
   els.undo.onclick = () => store.undo();
   els.redo.onclick = () => store.redo();
+
+  els.btnVacations.onclick = () => openVacsDrawer();
+  $('btn-vac-new').onclick = () => { els.dlgVacs.close(); openVacForm(); };
+  $('btn-welcome-new').onclick = () => openVacForm();
+  $('btn-vac-cancel').onclick = () => els.dlgVacForm.close();
+  els.dlgVacs.onclick = (ev) => { if (ev.target === els.dlgVacs) els.dlgVacs.close(); };
 
   els.fabTools.onclick = () => els.dlgTools.showModal();
   els.dlgTools.onclick = (ev) => { if (ev.target === els.dlgTools) els.dlgTools.close(); };

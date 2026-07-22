@@ -2,13 +2,7 @@ import { COMMANDS, isNoOp } from './commands.js';
 import { History } from './history.js';
 import { loadState, saveState, requestPersistence } from './db.js';
 
-export const TRIP = {
-  start: '2026-10-31',
-  end: '2027-01-04',
-  base: { name: 'Paterna', lat: 39.5028, lon: -0.4406 },
-};
-
-const initialState = () => ({ doc: { activities: [] } });
+const initialState = () => ({ doc: { vacations: [], activeId: null } });
 
 class Store {
   constructor() {
@@ -23,7 +17,7 @@ class Store {
     try {
       const persisted = await loadState();
       if (persisted) {
-        if (persisted.state?.doc?.activities) this.state = persisted.state;
+        if (Array.isArray(persisted.state?.doc?.vacations)) this.state = persisted.state;
         if (persisted.history) this.history.hydrate(persisted.history);
       }
     } catch (err) {
@@ -49,12 +43,45 @@ class Store {
     }
   }
 
+  activeVacation() {
+    const { vacations, activeId } = this.state.doc;
+    return vacations.find((v) => v.id === activeId) ?? null;
+  }
+
   // Lifecycle actions bypass commands and clear history.
-  replaceAll(activities) {
-    this.state = { doc: { activities } };
+  #lifecycle(mutate) {
+    const next = structuredClone(this.state);
+    mutate(next);
+    this.state = next;
     this.history.clear();
     this.#persist();
     this.#notify();
+  }
+
+  createVacation(vacation) {
+    this.#lifecycle((s) => {
+      s.doc.vacations = [...s.doc.vacations, vacation];
+      s.doc.activeId = vacation.id;
+    });
+  }
+
+  deleteVacation(id) {
+    this.#lifecycle((s) => {
+      s.doc.vacations = s.doc.vacations.filter((v) => v.id !== id);
+      if (s.doc.activeId === id) s.doc.activeId = s.doc.vacations[0]?.id ?? null;
+    });
+  }
+
+  switchVacation(id) {
+    if (!this.state.doc.vacations.some((v) => v.id === id)) return;
+    this.#lifecycle((s) => { s.doc.activeId = id; });
+  }
+
+  replaceActivities(activities) {
+    this.#lifecycle((s) => {
+      const v = s.doc.vacations.find((x) => x.id === s.doc.activeId);
+      if (v) v.activities = activities;
+    });
   }
 
   dispatch(cmd) {

@@ -1,7 +1,7 @@
 {
   "name": "Travel",
   "short_name": "Travel",
-  "description": "Itinerario del viaje a España: 31 oct 2026 – 4 ene 2027, base en Paterna, Valencia.",
+  "description": "Planificador de viajes: organizá tus vacaciones con mapa, itinerario y calendario.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

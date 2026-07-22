@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Travel — Padrino en España</title>
-  <meta name="description" content="Itinerario del viaje a España: 31 oct 2026 – 4 ene 2027, base en Paterna, Valencia." />
+  <title>Travel</title>
+  <meta name="description" content="Planificador de viajes: organizá tus vacaciones con mapa, itinerario y calendario." />
   <meta name="theme-color" content="#C73E1D" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -129,38 +129,42 @@
       <circle cx="50" cy="50" r="24" fill="none" stroke="#9E2F14" stroke-width="3" />
     </svg>
     <div class="hdr__text">
-      <h1>Padrino en España</h1>
-      <p class="hdr__sub">31 oct 2026 → 4 ene 2027 · base <strong>Paterna</strong></p>
-    </div>
-    <div class="hdr__hist">
-      <button type="button" id="btn-undo" class="btn-hist" aria-label="Deshacer" disabled>
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
-             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M8 5 4 9l4 4" />
-          <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H10" />
-        </svg>
-      </button>
-      <button type="button" id="btn-redo" class="btn-hist" aria-label="Rehacer" disabled>
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
-             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m16 5 4 4-4 4" />
-          <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H14" />
-        </svg>
-      </button>
+      <h1 class="hdr__h">
+        <button type="button" id="btn-vacations" class="hdr__switch" aria-haspopup="dialog">
+          <span class="hdr__title-row">
+            <span class="hdr__title" data-slot="trip-name">Travel</span>
+            <svg class="hdr__chev" viewBox="0 0 24 24" width="18" height="18" fill="none"
+                 stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </span>
+          <span class="hdr__sub" data-slot="trip-sub"></span>
+        </button>
+      </h1>
     </div>
   </header>
 
   <main id="view">
-    <section class="map-card">
+    <section id="welcome" class="empty welcome" hidden>
+      <p class="empty__big">¿A dónde vamos?</p>
+      <p>Creá tu primer viaje: ponele nombre, elegí las fechas y la primera
+      ciudad donde aterrizás. Después vas sumando paradas al itinerario.</p>
+      <button type="button" id="btn-welcome-new" class="btn btn--primary welcome__btn">
+        <svg width="17" height="17" aria-hidden="true"><use href="#i-plus" /></svg>
+        Crear viaje
+      </button>
+    </section>
+
+    <section id="map-card" class="map-card">
       <div id="map" aria-label="Mapa del itinerario"></div>
       <div id="route-info" class="route-info" hidden>
         <span class="route-info__dot" aria-hidden="true"></span>
         <span data-slot="route-text"></span>
       </div>
-      <p class="map-hint">Tocá una parada del mapa o una tarjeta para ver la ruta desde Paterna.</p>
+      <p class="map-hint">Tocá una parada del mapa o una tarjeta para ver la ruta desde tu base.</p>
     </section>
 
-    <section class="timeline">
+    <section id="timeline" class="timeline">
       <div class="timeline__head">
         <h2>Itinerario</h2>
         <span id="count-stamp" class="count-stamp"></span>
@@ -173,8 +177,8 @@
 
       <div id="empty-state" class="empty" hidden>
         <p class="empty__big">El mapa está en blanco…</p>
-        <p>¡todavía! Agregá tu primera parada: una escapada a Benidorm,
-        un museo en Valencia o ese mirador para fotos al atardecer.</p>
+        <p>¡todavía! Agregá tu primera parada: una escapada de unos días,
+        un museo o ese mirador para fotos al atardecer.</p>
       </div>
 
       <ol id="cards" class="cards"></ol>
@@ -188,7 +192,7 @@
 
   <button type="button" id="fab" class="fab">
     <svg width="19" height="19" aria-hidden="true"><use href="#i-plus" /></svg>
-    Nueva parada
+    Nueva actividad
   </button>
   <button type="button" id="fab-tools" class="fab-tools" aria-label="Herramientas">
     <svg width="24" height="24" aria-hidden="true"><use href="#i-case" /></svg>
@@ -200,6 +204,24 @@
   <dialog id="dlg-tools" class="drawer" aria-labelledby="drawer-title">
     <div class="drawer__handle" aria-hidden="true"></div>
     <h2 id="drawer-title">Herramientas</h2>
+    <div class="drawer__hist">
+      <button type="button" id="btn-undo" class="drawer__hist-btn" disabled>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 5 4 9l4 4" />
+          <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H10" />
+        </svg>
+        Deshacer
+      </button>
+      <button type="button" id="btn-redo" class="drawer__hist-btn" disabled>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m16 5 4 4-4 4" />
+          <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H14" />
+        </svg>
+        Rehacer
+      </button>
+    </div>
     <div class="drawer__list">
       <button type="button" id="btn-gpt" class="drawer__item">
         <span class="drawer__icon" aria-hidden="true"><svg width="22" height="22"><use href="#i-robot" /></svg></span>
@@ -265,7 +287,7 @@
 
   <dialog id="dlg-form" class="dlg dlg--full" aria-labelledby="dlg-form-title">
     <form id="form-activity" novalidate>
-      <h2 id="dlg-form-title" data-slot="form-title">Nueva parada</h2>
+      <h2 id="dlg-form-title" data-slot="form-title">Nueva actividad</h2>
 
       <label class="field">
         <span>Título</span>
@@ -292,11 +314,11 @@
       <div class="field-row">
         <label class="field">
           <span>Desde</span>
-          <input name="start" type="date" required min="2026-10-31" max="2027-01-04" />
+          <input name="start" type="date" required />
         </label>
         <label class="field">
           <span>Hasta</span>
-          <input name="end" type="date" min="2026-10-31" max="2027-01-04" />
+          <input name="end" type="date" />
         </label>
       </div>
       <p class="field-hint">Dejá «Hasta» vacío si es por el día.</p>
@@ -343,6 +365,65 @@
       <button type="button" id="btn-gpt-copy" class="btn">Copiar prompt</button>
       <button type="button" id="btn-gpt-import" class="btn btn--primary">Importar JSON…</button>
     </div>
+  </dialog>
+
+  <dialog id="dlg-vacations" class="drawer" aria-labelledby="vacs-title">
+    <div class="drawer__handle" aria-hidden="true"></div>
+    <h2 id="vacs-title">Tus viajes</h2>
+    <ul id="vac-list" class="vac-list"></ul>
+    <button type="button" id="btn-vac-new" class="drawer__item vac-new">
+      <span class="drawer__icon" aria-hidden="true"><svg width="20" height="20"><use href="#i-plus" /></svg></span>
+      <span class="drawer__label">Nuevo viaje
+        <small>Nombre, fechas y primera ciudad</small>
+      </span>
+    </button>
+  </dialog>
+
+  <template id="tpl-vac">
+    <li class="vac">
+      <button type="button" class="vac__main" data-slot="open">
+        <span class="vac__name" data-slot="name"></span>
+        <span class="vac__sub" data-slot="sub"></span>
+      </button>
+      <button type="button" class="vac__del" data-slot="delete" aria-label="Borrar viaje">
+        <svg width="18" height="18" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </li>
+  </template>
+
+  <dialog id="dlg-vacation" class="dlg" aria-labelledby="dlg-vac-title">
+    <form id="form-vacation" novalidate>
+      <h2 id="dlg-vac-title">Nuevo viaje</h2>
+
+      <label class="field">
+        <span>Nombre</span>
+        <input name="name" type="text" required maxlength="60" placeholder="España 2027" />
+      </label>
+
+      <div class="field-row">
+        <label class="field">
+          <span>Desde</span>
+          <input name="start" type="date" required />
+        </label>
+        <label class="field">
+          <span>Hasta</span>
+          <input name="end" type="date" required />
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Primera ciudad</span>
+        <input name="base" type="text" required list="city-list" placeholder="Valencia" autocomplete="off" />
+      </label>
+      <p class="field-hint">Donde aterrizás: será tu base en el mapa.</p>
+
+      <p id="vac-error" class="form-error" role="alert" hidden></p>
+
+      <div class="dlg__actions">
+        <button type="button" id="btn-vac-cancel" class="btn">Cancelar</button>
+        <button type="submit" class="btn btn--primary">Crear viaje</button>
+      </div>
+    </form>
   </dialog>
 
   <dialog id="dlg-confirm" class="dlg dlg--confirm" aria-labelledby="confirm-title">
