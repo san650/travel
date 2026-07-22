@@ -306,6 +306,17 @@ export const deleteFile = async (fileId) => {
   await request(`${API}/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
 };
 
+// Papelera, no borrado definitivo: un archivo trashed se sigue pudiendo leer
+// por id hasta la purga (~30 días), así que deshacer un adjunto borrado sigue
+// funcionando y la sincronización puede restaurarlo con trashed:false.
+export const setTrashed = async (fileId, trashed) => {
+  await request(`${API}/files/${encodeURIComponent(fileId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ trashed }),
+  });
+};
+
 // ---------- permisos ----------
 
 export const shareWith = async ({ fileId, emailAddress, role = 'writer' }) => {

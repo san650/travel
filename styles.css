@@ -1050,10 +1050,10 @@ main {
   display: block;
 }
 
-.lightbox__close {
+.lightbox__close,
+.lightbox__share {
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 0.8rem);
-  right: calc(env(safe-area-inset-right, 0px) + 0.8rem);
   width: 44px;
   height: 44px;
   display: grid;
@@ -1063,6 +1063,14 @@ main {
   border: 2px solid var(--ink);
   border-radius: 50%;
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+.lightbox__close {
+  right: calc(env(safe-area-inset-right, 0px) + 0.8rem);
+}
+
+.lightbox__share {
+  left: calc(env(safe-area-inset-left, 0px) + 0.8rem);
 }
 
 /* ---------- diálogo ChatGPT ---------- */

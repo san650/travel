@@ -477,12 +477,23 @@ export const openAttachment = async (att) => {
   if ((att.mimeType || '').startsWith('image/')) {
     const url = URL.createObjectURL(blob);
     $('lightbox-img').src = url;
+    const shareBtn = $('btn-photo-share');
+    shareBtn.hidden = false;
+    shareBtn.onclick = (ev) => {
+      ev.stopPropagation(); // el dialog cierra con cualquier tap
+      shareAttachmentBlob(blob, att);
+    };
     $('dlg-photo').showModal();
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
     return;
   }
-  // PDFs y otros: en la PWA instalada de iOS, blob: + _blank es poco fiable
-  // y no ofrece guardar; el share sheet nativo («Abrir en Archivos…») sí.
+  await shareAttachmentBlob(blob, att);
+};
+
+// Share sheet nativo con ancla como último recurso: en la PWA instalada de
+// iOS, blob: + _blank es poco fiable y no ofrece guardar; el share sheet
+// («Abrir en Archivos…») sí.
+const shareAttachmentBlob = async (blob, att) => {
   const file = new File([blob], att.name || 'adjunto', {
     type: att.mimeType || 'application/octet-stream',
   });

@@ -136,6 +136,12 @@ pending: [commands], canShare }`. Record presence == travel is shared.
   `store.patchAttachmentDriveIds`, which must NOT clear undo history);
   other members lazy-download on first open. Attach UI is gated on the
   travel being shared. 15 MB cap.
+- Removed attachments go to the Drive **trash at sync time** (never on
+  dispatch, never hard-delete — undo must keep working; trashed files stay
+  readable by id until purge ≈ tombstone TTL). Only the file's owner can
+  trash it: each client attempts once per tombstone, records it in
+  `rec.trashedAttachments`, and un-trashes on the next sync if the
+  attachment is alive again (undo). 403/404 = settled; other errors retry.
 - Status chip in the header = pending count; tap = sync. `beforeunload`
   nudge when pending non-empty.
 - **Dead share** (`NO_ACCESS`: owner deleted the folder OR member was
@@ -172,7 +178,9 @@ Real-credential tests never run (no Cloud project yet when built):
 two-account end-to-end sync, and the `spike.html` B4 test — whether a
 Picker folder grant covers files other members create later. Attachments
 are built assuming B4 passes; if it fails, fallback is per-file re-pick or
-full-drive scope. Do not silently assume these passed.
+full-drive scope. Do not silently assume these passed. Also untested against
+real Drive: the attachment trash/un-trash sweep at sync (`syncAttachmentTrash`),
+including whether a trashed file stays downloadable by id for non-owners.
 
 On-device iPhone finding (2026-07-22): the GIS popup fails with "failed to
 open popup" when the first-run modals (config, name) run between the tap

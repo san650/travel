@@ -409,6 +409,8 @@ const renderCards = () => {
         img.onerror = () => { ph.hidden = true; };
         ph.onclick = () => {
           $('lightbox-img').src = url;
+          // Fotos remotas (URL): sin blob local, el lightbox no comparte.
+          $('btn-photo-share').hidden = true;
           $('dlg-photo').showModal();
         };
         photosBox.appendChild(ph);

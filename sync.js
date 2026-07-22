@@ -169,6 +169,39 @@ const uploadPendingAttachments = async (rec, travel) => {
   return uploaded;
 };
 
+// Adjuntos borrados → papelera de Drive. Corre al sincronizar, nunca al
+// borrar: el tombstone es la verdad y el archivo va a la papelera (no borrado
+// definitivo) para que deshacer siga funcionando — trashed se sigue leyendo
+// por id y, si el adjunto revive, la próxima sincronización lo restaura.
+// Drive solo deja mover a la papelera al dueño del archivo (quien lo subió):
+// cada cliente intenta una vez por tombstone y lo anota en el sync record;
+// el dueño real lo concreta cuando adopta el tombstone. La purga de la
+// papelera (~30 días) coincide con el TTL de tombstones.
+const syncAttachmentTrash = async (travelId, rec, attachments) => {
+  const marks = new Set(rec.trashedAttachments ?? []);
+  const before = [...marks].sort().join(',');
+  for (const att of attachments) {
+    if (!att.driveFileId) continue;
+    const wantTrash = Boolean(att.deletedAt);
+    if (wantTrash === marks.has(att.id)) continue;
+    try {
+      await drive.setTrashed(att.driveFileId, wantTrash);
+      wantTrash ? marks.add(att.id) : marks.delete(att.id);
+    } catch (err) {
+      // 403 (no soy dueño) / 404 (ya no existe): no hay nada más que hacer
+      // desde esta cuenta. Cualquier otro error se reintenta al próximo sync.
+      if (err?.code !== 'NO_ACCESS') continue;
+      wantTrash ? marks.add(att.id) : marks.delete(att.id);
+    }
+  }
+  const ids = new Set(attachments.map((a) => a.id));
+  for (const id of [...marks]) if (!ids.has(id)) marks.delete(id); // tombstones GC'd
+  if ([...marks].sort().join(',') !== before) {
+    rec.trashedAttachments = [...marks];
+    store.setSyncRecord(travelId, rec);
+  }
+};
+
 // ---------- operaciones ----------
 
 const uploadState = async (rec, travel, revision) => {
@@ -241,13 +274,18 @@ export const syncTravel = async (travelId, { resolutions = null, _retried = fals
   const remoteChanged = String(head.version) !== String(rec.baseDriveVersion);
   const hasNewAttachments = local.attachments.some((a) => !a.driveFileId && !a.deletedAt);
 
-  if (!pendingCount && !hasNewAttachments && !remoteChanged) return { status: 'clean' };
+  if (!pendingCount && !hasNewAttachments && !remoteChanged) {
+    // Reintento de papelera que quedó pendiente (p. ej. corte de red).
+    await syncAttachmentTrash(travelId, rec, local.attachments);
+    return { status: 'clean' };
+  }
 
   if (!pendingCount && remoteChanged) {
     const { metadata, data } = await drive.readJsonFile(rec.driveFileId);
     const remote = validateRemote(data, travelId);
     store.replaceTravel(travelId, remote.travel);
     consume(travelId, rec, 0, remote.revision, metadata.version);
+    await syncAttachmentTrash(travelId, rec, remote.travel.attachments);
     return { status: 'updated' };
   }
 
@@ -259,6 +297,7 @@ export const syncTravel = async (travelId, { resolutions = null, _retried = fals
     // El clon subido tiene los driveFileId nuevos; reflejarlos en el estado
     // local sin tocar el historial de deshacer.
     if (Object.keys(uploadedIds).length) store.patchAttachmentDriveIds(travelId, uploadedIds);
+    await syncAttachmentTrash(travelId, rec, travel.attachments);
     return { status: 'pushed' };
   }
 
@@ -281,6 +320,7 @@ export const syncTravel = async (travelId, { resolutions = null, _retried = fals
   const { metadata: uploadedMeta } = await uploadState(rec, merged, revision);
   store.replaceTravel(travelId, merged);
   consume(travelId, rec, pendingCount, revision, uploadedMeta.version);
+  await syncAttachmentTrash(travelId, rec, merged.attachments);
   return { status: 'merged' };
 };
 
