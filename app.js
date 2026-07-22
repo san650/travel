@@ -276,12 +276,15 @@ const renderCards = () => {
     if (act.photos.length) {
       photosBox.hidden = false;
       for (const url of act.photos) {
-        const a = cloneTpl('tpl-photo');
-        a.href = url;
-        const img = a.querySelector('img');
+        const ph = cloneTpl('tpl-photo');
+        const img = ph.querySelector('img');
         img.src = url;
-        img.onerror = () => { a.hidden = true; };
-        photosBox.appendChild(a);
+        img.onerror = () => { ph.hidden = true; };
+        ph.onclick = () => {
+          $('lightbox-img').src = url;
+          $('dlg-photo').showModal();
+        };
+        photosBox.appendChild(ph);
       }
     }
 
@@ -659,6 +662,10 @@ const start = async () => {
   $('btn-banner-export').onclick = () => exportJson();
   $('btn-import').onclick = () => { els.dlgTools.close(); els.fileImport.click(); };
   $('btn-gpt').onclick = () => { els.dlgTools.close(); openGptDialog(); };
+
+  const dlgPhoto = $('dlg-photo');
+  dlgPhoto.onclick = () => dlgPhoto.close();
+  $('btn-photo-close').onclick = () => dlgPhoto.close();
 
   const dlgDay = $('dlg-day');
   dlgDay.onclick = (ev) => { if (ev.target === dlgDay) dlgDay.close(); };

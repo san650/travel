@@ -691,10 +691,13 @@ main {
   flex: none;
   width: 132px;
   height: 96px;
+  min-height: 0;
+  padding: 0;
   border-radius: 8px;
   overflow: hidden;
   border: 2px solid var(--ink);
   background: var(--paper-deep);
+  cursor: zoom-in;
 }
 
 .photo img {
@@ -886,6 +889,54 @@ main {
   font-weight: 400;
   font-size: 0.8rem;
   color: var(--ink-soft);
+}
+
+/* ---------- lightbox de fotos ---------- */
+
+.lightbox {
+  inset: 0;
+  margin: 0;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+  background: rgba(26, 19, 14, 0.96);
+  cursor: zoom-out;
+}
+
+.lightbox[open] {
+  display: grid;
+  place-items: center;
+  animation: lightboxIn 220ms var(--ease);
+}
+
+@keyframes lightboxIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.lightbox__close {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 0.8rem);
+  right: calc(env(safe-area-inset-right, 0px) + 0.8rem);
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: var(--cream);
+  color: var(--terra-dark);
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
 }
 
 /* ---------- diálogo ChatGPT ---------- */

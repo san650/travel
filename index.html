@@ -101,6 +101,9 @@
     <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
       <path d="M12 5v14M5 12h14" />
     </symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+      <path d="M6 6l12 12M18 6 6 18" />
+    </symbol>
   </svg>
 
   <div id="persist-banner" class="banner" role="alert" hidden>
@@ -255,9 +258,9 @@
   </template>
 
   <template id="tpl-photo">
-    <a class="photo" target="_blank" rel="noreferrer">
+    <button type="button" class="photo">
       <img loading="lazy" referrerpolicy="no-referrer" alt="Foto del destino" />
-    </a>
+    </button>
   </template>
 
   <dialog id="dlg-form" class="dlg dlg--full" aria-labelledby="dlg-form-title">
@@ -310,6 +313,13 @@
         <button type="submit" class="btn btn--primary" data-slot="form-submit">Guardar</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="dlg-photo" class="lightbox" aria-label="Foto a pantalla completa">
+    <img id="lightbox-img" alt="Foto del destino" />
+    <button type="button" id="btn-photo-close" class="lightbox__close" aria-label="Cerrar">
+      <svg width="22" height="22" aria-hidden="true"><use href="#i-x" /></svg>
+    </button>
   </dialog>
 
   <dialog id="dlg-day" class="drawer" aria-labelledby="day-title">
