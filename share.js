@@ -18,7 +18,22 @@ let els = {};
 let syncing = false;
 let flashTimer = 0;
 let joinFileId = null;
+let joinName = '';
 let joinMode = 'direct'; // 'direct' | 'picker'
+
+// El flujo de auth por redirección (fallback en la PWA instalada de iOS)
+// recarga la página: la acción en curso se anota en sessionStorage antes de
+// autorizar y se retoma al volver con el token en el fragmento.
+const PENDING_ACTION = 'travel42uy-pending-action';
+const rememberAction = (a) => { try { sessionStorage.setItem(PENDING_ACTION, JSON.stringify(a)); } catch {} };
+const clearAction = () => { try { sessionStorage.removeItem(PENDING_ACTION); } catch {} };
+const takeAction = () => {
+  try {
+    const raw = sessionStorage.getItem(PENDING_ACTION);
+    sessionStorage.removeItem(PENDING_ACTION);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+};
 
 // ---------- chip de estado ----------
 
@@ -179,6 +194,7 @@ export const runSync = async () => {
   if (!v || !store.isShared(v.id) || syncing) return;
   syncing = true;
   updateChip();
+  rememberAction({ action: 'sync', travelId: v.id });
   try {
     let resolutions = null;
     for (;;) {
@@ -214,6 +230,7 @@ export const runSync = async () => {
       flash(errorLabel(err), true);
     }
   } finally {
+    clearAction();
     syncing = false;
     setTimeout(updateChip, 2600);
   }
@@ -311,6 +328,7 @@ const renderShareDialog = () => {
   if (!v) return;
   const rec = store.syncRecord(v.id);
   els.shareError.hidden = true;
+  els.shareBtnStart.textContent = 'Compartir este viaje';
   $('share-off').hidden = Boolean(rec);
   $('share-on').hidden = !rec;
   if (!rec) return;
@@ -334,12 +352,22 @@ const openShareDialog = () => {
 const shareNow = async () => {
   const v = store.activeVacation();
   if (!v) return;
+  await drive.loadConfig();
+  const hadSetup = drive.isConfigured() && Boolean(store.actor);
   try {
     await ensureConfigured();
     await ensureActor();
   } catch { return; }
+  if (!hadSetup && !drive.hasToken()) {
+    // Los modales de primera vez consumieron la activación del gesto y el
+    // popup de Google sería bloqueado ("failed to open popup"): pedir un
+    // tap fresco con la etiqueta correcta.
+    els.shareBtnStart.textContent = 'Conectar con Google';
+    return;
+  }
   els.shareBtnStart.disabled = true;
   els.shareBtnStart.textContent = 'Conectando…';
+  rememberAction({ action: 'share', travelId: v.id });
   try {
     if (!drive.hasToken()) await drive.authorize({ prompt: 'consent' });
     await sync.shareTravel(v.id);
@@ -348,6 +376,7 @@ const shareNow = async () => {
   } catch (err) {
     showShareError(err);
   } finally {
+    clearAction();
     els.shareBtnStart.disabled = false;
     els.shareBtnStart.textContent = 'Compartir este viaje';
   }
@@ -493,11 +522,19 @@ const showJoinError = (message) => {
 
 const joinGo = async () => {
   $('join-error').hidden = true;
+  await drive.loadConfig();
+  const hadSetup = drive.isConfigured() && Boolean(store.actor);
   try {
     await ensureConfigured();
     await ensureActor();
   } catch { return; }
+  if (!hadSetup && !drive.hasToken()) {
+    // Ídem shareNow: los modales consumieron la activación; tap fresco.
+    showJoinError('Listo. Tocá «Conectar y abrir» de nuevo para continuar.');
+    return;
+  }
   els.joinGoBtn.disabled = true;
+  rememberAction({ action: 'join', fileId: joinFileId, name: joinName, mode: joinMode });
   try {
     if (!drive.hasToken()) await drive.authorize({ prompt: 'consent' });
     const travel = joinMode === 'picker'
@@ -528,7 +565,29 @@ const joinGo = async () => {
       showJoinError('No se pudo abrir la invitación. Revisá que entraste con la cuenta invitada.');
     }
   } finally {
+    clearAction();
     els.joinGoBtn.disabled = false;
+  }
+};
+
+// Al volver de una autorización por redirección, retomar lo que el usuario
+// estaba haciendo (el token ya fue adoptado por drive.adoptRedirectToken).
+const resumeAction = async (p) => {
+  if (p.action === 'sync' && store.activeVacation()?.id === p.travelId) {
+    runSync();
+  } else if (p.action === 'share' && p.travelId) {
+    try {
+      await sync.shareTravel(p.travelId);
+      updateChip();
+      openShareDialog();
+    } catch (err) {
+      console.error('share resume failed', err);
+      flash('Error al compartir', true);
+    }
+  } else if (p.action === 'join' && p.fileId) {
+    openJoinDialog(p.fileId, p.name);
+    joinMode = p.mode === 'picker' ? 'picker' : 'direct';
+    joinGo();
   }
 };
 
@@ -549,6 +608,7 @@ const adoptInviteConfig = async (cfg) => {
 
 const openJoinDialog = (fileId, name) => {
   joinFileId = fileId;
+  joinName = name || '';
   joinMode = 'direct';
   $('dlg-join-title').textContent = name ? `Te invitaron a «${name}»` : 'Te invitaron a un viaje';
   $('join-picker').hidden = true;
@@ -628,4 +688,14 @@ export const initShare = () => {
   store.subscribe(updateChip);
   updateChip();
   drive.loadConfig();
+
+  // ¿Venimos de una redirección de autorización (fallback de la PWA iOS)?
+  const auth = drive.adoptRedirectToken();
+  const pending = auth ? takeAction() : null;
+  if (auth?.ok && pending) {
+    resumeAction(pending);
+  } else if (auth && !auth.ok) {
+    clearAction();
+    flash(auth.error === 'access_denied' ? 'Conexión cancelada' : 'No se pudo conectar', true);
+  }
 };

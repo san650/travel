@@ -174,10 +174,14 @@ Picker folder grant covers files other members create later. Attachments
 are built assuming B4 passes; if it fails, fallback is per-file re-pick or
 full-drive scope. Do not silently assume these passed.
 
-Also untested on-device: the GIS OAuth popup inside the installed iOS PWA
-(in-app sheet `window.opener` hand-back — the classic standalone failure
-mode). If the user's iPhone test shows it hanging after login, implement
-the implicit-redirect fallback for `navigator.standalone` documented in
-pwa-gotchas `oauth-popup-standalone.md` (requires registering the origin
-as an authorized redirect URI). Deliberately NOT built yet — waiting for
-that test.
+On-device iPhone finding (2026-07-22): the GIS popup fails with "failed to
+open popup" when the first-run modals (config, name) run between the tap
+and the auth call — activation consumed; a second fresh tap opens it fine.
+Implemented: after first-run modals the flow stops and relabels the button
+(«Conectar con Google» / join hint) so the next tap authorizes with fresh
+activation; plus an error-driven redirect fallback (`popup_failed_to_open`
++ `navigator.standalone` → full-page implicit flow, action persisted in
+sessionStorage and resumed on return via `drive.adoptRedirectToken()`).
+Redirect URIs (`/` and `/index.html`, prod + localhost) must be registered
+on the OAuth client. Still pending on-device: full connect-to-folder
+round-trip and the redirect fallback path itself.

@@ -29,8 +29,11 @@ como tal).
 6. **Google Auth Platform → Clientes → + Crear cliente**:
    - Tipo: **Aplicación web**.
    - Orígenes de JavaScript autorizados: `https://travel.42.uy` y
-     `http://localhost:8765`. Sin redirect URIs (flujo de token en el
-     navegador).
+     `http://localhost:8765`.
+   - URIs de redireccionamiento autorizados: `https://travel.42.uy/`,
+     `https://travel.42.uy/index.html`, `http://localhost:8765/` y
+     `http://localhost:8765/index.html` — la PWA instalada en iOS cae a un
+     flujo implícito por redirección cuando el popup está bloqueado.
    → copiar el **Client ID** (`…apps.googleusercontent.com`).
 7. **☰ → APIs y servicios → Credenciales → + Crear credenciales → Clave de
    API** → copiar la **API key** (`AIza…`). Recomendado restringirla:

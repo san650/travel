@@ -104,7 +104,48 @@ const ensureGsi = async () => {
   }
 };
 
+// PWA instalada en iOS: window.open está capado (y los modales previos ya
+// consumieron la activación del gesto) — el popup de GIS falla con "failed
+// to open popup". Ahí se usa el flujo implícito por redirección de página
+// completa: no hay backend ni secreto, el token vuelve en el fragmento.
+// Requiere registrar el origen como URI de redirección en el OAuth client.
+const REDIRECT_STATE = 'travel42uy-auth';
+
+const redirectAuthorize = (prompt) => {
+  const params = new URLSearchParams({
+    client_id: config.clientId,
+    redirect_uri: location.origin + location.pathname,
+    response_type: 'token',
+    scope: SCOPE,
+    include_granted_scopes: 'true',
+    state: REDIRECT_STATE,
+    prompt,
+  });
+  location.assign(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  // La página se va: la promesa no debe resolverse nunca.
+  return new Promise(() => {});
+};
+
+// Llamar al arrancar: adopta el token que Google devolvió en el fragmento.
+// Devuelve null si no venimos de una redirección de auth.
+export const adoptRedirectToken = () => {
+  if (!location.hash) return null;
+  const frag = new URLSearchParams(location.hash.slice(1));
+  if (frag.get('state') !== REDIRECT_STATE) return null;
+  history.replaceState(null, '', location.pathname + location.search);
+  if (frag.get('error')) return { ok: false, error: frag.get('error') };
+  const token = frag.get('access_token');
+  if (!token) return { ok: false, error: 'no_token' };
+  accessToken = token;
+  expiresAt = Date.now() + Number(frag.get('expires_in') || 3600) * 1000;
+  return { ok: true, error: null };
+};
+
 export const authorize = async ({ prompt = '' } = {}) => {
+  await loadConfig();
+  if (!isConfigured()) {
+    throw new DriveError('Falta la configuración de Google.', { code: 'NOT_CONFIGURED' });
+  }
   await ensureGsi();
   return new Promise((resolve, reject) => {
     tokenClient.callback = (response) => {
@@ -117,6 +158,13 @@ export const authorize = async ({ prompt = '' } = {}) => {
       resolve(response);
     };
     tokenClient.error_callback = (error) => {
+      // Popup bloqueado (activación de gesto consumida, o standalone
+      // restrictivo): en la PWA instalada de iOS caer al flujo por
+      // redirección. location.assign no necesita activación.
+      if (error?.type === 'popup_failed_to_open' && navigator.standalone === true) {
+        redirectAuthorize(prompt);
+        return; // la página se va; no settlear
+      }
       reject(new DriveError(error?.message || 'Autorización cancelada.', { code: 'AUTH_FAILED' }));
     };
     tokenClient.requestAccessToken({ prompt });
