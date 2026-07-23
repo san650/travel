@@ -92,19 +92,6 @@ button {
   padding: 1.1rem 0 0.9rem;
 }
 
-.hdr__sun {
-  width: 58px;
-  height: 58px;
-  flex: none;
-}
-
-.hdr__rays {
-  transform-origin: 50% 50%;
-  animation: sunSpin 40s linear infinite;
-}
-
-@keyframes sunSpin { to { transform: rotate(360deg); } }
-
 .hdr__text { flex: 1 1 auto; min-width: 0; }
 
 .hdr h1 {
@@ -222,12 +209,25 @@ main {
   50% { opacity: 0.35; transform: scale(0.8); }
 }
 
-.map-hint {
-  margin: 0.55rem 0.35rem 0.25rem;
-  font-size: 0.82rem;
-  color: var(--ink-soft);
+/* aviso de gestos cooperativos: un dedo scrollea, dos mueven el mapa */
+.map-coop {
+  position: absolute;
+  inset: 0;
+  z-index: 900;
+  display: grid;
+  place-items: center;
+  background: rgba(58, 44, 35, 0.45);
+  color: var(--cream);
+  font-weight: 700;
+  font-size: 1rem;
   text-align: center;
+  padding: 1rem;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
 }
+
+.map-coop--show { opacity: 1; }
 
 /* markers (Leaflet divIcon, className cleared) */
 
@@ -252,12 +252,15 @@ main {
   font-family: 'Alegreya Sans', sans-serif;
 }
 
+/* Selección por forma, no por color: el pin conserva el color del tipo
+   (correlación con la tarjeta) y se marca con anillo de tinta + escala
+   desde la punta. */
 .mk--active {
-  background: var(--amber);
   border-color: var(--ink);
+  scale: 1.22;
+  transform-origin: 0% 100%;
+  box-shadow: 0 3px 10px rgba(58, 44, 35, 0.6);
 }
-
-.mk--active > span { color: var(--ink); }
 
 .mk--home {
   rotate: 0deg;
@@ -530,8 +533,10 @@ main {
   transition: transform 340ms var(--ease), margin 340ms var(--ease), box-shadow 340ms var(--ease);
 }
 
-/* pila: las tarjetas cerradas se encaballan con leve rotación alternada */
-.card + .card { margin-top: -12px; }
+/* pila: las tarjetas cerradas se encaballan con leve rotación alternada.
+   Solapamiento corto: la cabecera de color es toda la tarjeta cerrada y un
+   solape mayor tapa el sello de tipo. */
+.card + .card { margin-top: -5px; }
 
 .card:nth-child(odd):not(.card--open) { transform: rotate(-0.5deg); }
 .card:nth-child(even):not(.card--open) { transform: rotate(0.6deg); }
@@ -562,11 +567,13 @@ main {
   gap: 0.7rem;
   width: 100%;
   text-align: left;
-  background: none;
+  background: var(--k, var(--terra));
   border: 0;
   padding: 0.55rem 0.8rem;
   cursor: pointer;
 }
+
+.card--open .card__head { border-bottom: 2px solid var(--ink); }
 
 .card__date {
   flex: none;
@@ -582,9 +589,17 @@ main {
   letter-spacing: 0.02em;
 }
 
-.card__title {
+.card__main {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.22rem;
+}
+
+.card__title {
+  max-width: 100%;
   font-family: 'Alegreya', Georgia, serif;
   font-weight: 800;
   font-size: 1.15rem;
@@ -592,6 +607,8 @@ main {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--cream);
+  text-shadow: 0 1px 0 rgba(58, 44, 35, 0.28);
 }
 
 .card--open .card__title { white-space: normal; }
@@ -643,15 +660,15 @@ main {
 }
 
 .card__stamp {
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--k, var(--terra));
-  border: 2px solid var(--k, var(--terra));
+  color: var(--cream);
+  border: 1.5px solid rgba(251, 246, 234, 0.75);
   border-radius: 6px;
-  padding: 0.1rem 0.45rem;
-  rotate: 2deg;
+  padding: 0.06rem 0.4rem;
+  rotate: -1.4deg;
   white-space: nowrap;
 }
 

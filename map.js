@@ -44,10 +44,13 @@ const svgUse = (id, size) => {
   return svg;
 };
 
-const pinElement = (label, kind, extraClass) => {
+const pinElement = (label, kind, extraClass, offset) => {
   const el = document.createElement('div');
   el.className = 'mk' + (extraClass ? ' ' + extraClass : '');
   if (kind) el.style.setProperty('--k', KIND_COLORS[kind] || KIND_COLORS.otro);
+  // `translate` (propiedad individual) se aplica antes que `rotate`/`scale`,
+  // así el abanico corre en espacio de pantalla sin torcer el pin.
+  if (offset) el.style.translate = `${offset[0]}px ${offset[1]}px`;
   const span = document.createElement('span');
   if (label === null) span.appendChild(svgUse('i-home', 18));
   else span.textContent = label;
@@ -55,16 +58,22 @@ const pinElement = (label, kind, extraClass) => {
   return el;
 };
 
-const pinIcon = (label, kind, extraClass) =>
+const pinIcon = (label, kind, extraClass, offset) =>
   L.divIcon({
-    html: pinElement(label, kind, extraClass),
+    html: pinElement(label, kind, extraClass, offset),
     className: '',
     iconSize: extraClass === 'mk--home' ? [34, 34] : [30, 30],
     iconAnchor: extraClass === 'mk--home' ? [17, 17] : [15, 29],
   });
 
 export const initMap = (el) => {
-  map = L.map(el, { zoomControl: true, attributionControl: true });
+  // Gestos cooperativos (como Google Maps embebido): en táctil, un dedo
+  // scrollea la página y el mapa se mueve con dos (touchZoom panea y hace
+  // zoom a la vez). Leaflet no lo trae: se logra apagando dragging en
+  // táctil — sin la clase leaflet-touch-drag, touch-action deja pasar el
+  // scroll de página al navegador.
+  const coop = L.Browser.mobile;
+  map = L.map(el, { zoomControl: true, attributionControl: true, dragging: !coop });
   map.setView([25, -10], 2);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -72,6 +81,29 @@ export const initMap = (el) => {
   }).addTo(map);
   markersLayer = L.layerGroup().addTo(map);
   routeLayer = L.layerGroup().addTo(map);
+
+  if (coop) {
+    const hint = document.createElement('div');
+    hint.className = 'map-coop';
+    hint.textContent = 'Movés el mapa con dos dedos';
+    el.appendChild(hint);
+    let timer = null;
+    let start = null;
+    el.addEventListener('touchstart', (ev) => {
+      start = ev.touches.length === 1
+        ? { x: ev.touches[0].clientX, y: ev.touches[0].clientY }
+        : null;
+    }, { passive: true });
+    el.addEventListener('touchmove', (ev) => {
+      if (!start || ev.touches.length !== 1) return;
+      const dx = ev.touches[0].clientX - start.x;
+      const dy = ev.touches[0].clientY - start.y;
+      if (Math.hypot(dx, dy) < 12) return;
+      hint.classList.add('map-coop--show');
+      clearTimeout(timer);
+      timer = setTimeout(() => hint.classList.remove('map-coop--show'), 1100);
+    }, { passive: true });
+  }
 };
 
 // Mueve la base (marcador "casa") al cambiar de viaje.
@@ -95,10 +127,27 @@ export const renderMarkers = (activities, activeId, onTap) => {
   markersLayer.clearLayers();
   markerById = new Map();
 
+  // El gazetteer es a nivel ciudad: varias paradas comparten lat/lon exactas
+  // y los pines quedarían perfectamente apilados. Abanico determinista en
+  // píxeles alrededor del punto real para que todos se vean y se toquen.
+  const groups = new Map();
+  for (const act of activities) {
+    const key = `${act.lat},${act.lon}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(act.id);
+  }
+
   activities.forEach((act, i) => {
     const extra = act.id === activeId ? 'mk--active' : '';
+    const group = groups.get(`${act.lat},${act.lon}`);
+    let offset = null;
+    if (group.length > 1) {
+      const j = group.indexOf(act.id);
+      const ang = (j / group.length) * 2 * Math.PI - Math.PI / 2;
+      offset = [Math.round(Math.cos(ang) * 13), Math.round(Math.sin(ang) * 13)];
+    }
     const m = L.marker([act.lat, act.lon], {
-      icon: pinIcon(String(i + 1), act.kind, extra),
+      icon: pinIcon(String(i + 1), act.kind, extra, offset),
       zIndexOffset: act.id === activeId ? 400 : i,
     });
     m.on('click', () => onTap(act));
