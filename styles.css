@@ -941,6 +941,37 @@ main {
 
 .drawer__icon svg { display: block; }
 
+/* ---------- historial de cambios ---------- */
+
+.log-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+}
+
+.log-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.55rem 0.2rem;
+  border-bottom: 1px dashed rgba(58, 44, 35, 0.25);
+}
+
+.log-item:last-child { border-bottom: 0; }
+
+.log-item__what { font-size: 0.95rem; }
+
+.log-item__sub {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.log-empty {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
 .drawer__label small {
   display: block;
   font-weight: 400;

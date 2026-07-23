@@ -51,8 +51,19 @@ is an **aggregate**:
   meta:        { name, start, end, base{name,lat,lon}, rev, updatedAt, updatedBy },
   activities:  [{ …domain, rev, updatedAt, updatedBy, deletedAt }],
   attachments: [{ id, activityId, name, mimeType, size, driveFileId,
-                  rev, updatedAt, updatedBy, deletedAt }] }
+                  rev, updatedAt, updatedBy, deletedAt }],
+  log:         [{ cmdId, ts, by, action, title?|count?, fields? }] }
 ```
+
+- `log` = view-only change history («Historial de cambios» in the vacations
+  drawer), capped at 200. Appended centrally in `appendLog()` (commands.js)
+  on every command apply — local dispatch, redo, AND sync replay, so remote
+  members' changes arrive attributed via the stamped command's `actor`.
+  Undo removes the entry by `cmdId` (dedupe by `cmdId` also absorbs
+  UPDATE_ACTIVITY coalescing, which keeps the first cmdId). Spanish labels
+  are render-time (`logLabel`/`logDetail` in app.js); actor shown only when
+  the travel is shared. Older travels without `log` are fine everywhere
+  (`v.log ?? []`); `validateRemote` normalizes and caps it.
 
 - Per-entity `rev` bumps on every mutation (stamped centrally in command
   `apply()`); it is the base for merge conflict detection.

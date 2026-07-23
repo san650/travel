@@ -113,6 +113,10 @@
     <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
       <path d="M6 6l12 12M18 6 6 18" />
     </symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="8.2" />
+      <path d="M12 7.5V12l3.2 1.9" />
+    </symbol>
   </svg>
 
   <div id="persist-banner" class="banner" role="alert" hidden>
@@ -427,6 +431,19 @@
         <small>Abrí el archivo .travel.invite que te mandaron</small>
       </span>
     </button>
+    <button type="button" id="btn-vac-log" class="drawer__item vac-new" hidden>
+      <span class="drawer__icon" aria-hidden="true"><svg width="20" height="20"><use href="#i-clock" /></svg></span>
+      <span class="drawer__label">Historial de cambios
+        <small>Qué cambió en este viaje y quién</small>
+      </span>
+    </button>
+  </dialog>
+
+  <dialog id="dlg-log" class="drawer" aria-labelledby="log-title">
+    <div class="drawer__handle" aria-hidden="true"></div>
+    <h2 id="log-title">Historial de cambios</h2>
+    <p id="log-empty" class="log-empty" hidden>Sin cambios registrados todavía. Los cambios anteriores a esta versión de la app no quedaron anotados.</p>
+    <ul id="log-list" class="log-list"></ul>
   </dialog>
 
   <template id="tpl-vac">

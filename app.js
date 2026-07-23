@@ -192,7 +192,63 @@ const renderVacList = () => {
 
 const openVacsDrawer = () => {
   renderVacList();
+  $('btn-vac-log').hidden = !trip();
   els.dlgVacs.showModal();
+};
+
+// ---------- historial de cambios ----------
+
+const fmtLogTs = new Intl.DateTimeFormat('es', {
+  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+});
+
+const LOG_FIELD_NAMES = {
+  title: 'título', kind: 'tipo', city: 'ciudad', lat: 'ubicación', lon: 'ubicación',
+  start: 'fechas', end: 'fechas', time: 'hora', desc: 'descripción',
+  name: 'nombre', base: 'ciudad base',
+};
+
+const logLabel = (e) => {
+  const n = e.count ?? 0;
+  switch (e.action) {
+    case 'add': return `Añadió «${e.title}»`;
+    case 'add-many': return n === 1 ? 'Añadió 1 parada' : `Añadió ${n} paradas`;
+    case 'update': return `Editó «${e.title}»`;
+    case 'remove': return `Borró «${e.title}»`;
+    case 'remove-many': return n === 1 ? 'Borró 1 parada' : `Borró ${n} paradas`;
+    case 'import': return `Importó un itinerario (${n === 1 ? '1 parada' : `${n} paradas`})`;
+    case 'attach': return `Adjuntó «${e.title}»`;
+    case 'detach': return `Quitó el adjunto «${e.title}»`;
+    case 'meta': return 'Editó los datos del viaje';
+    default: return e.action;
+  }
+};
+
+const logDetail = (e, shared) => {
+  const parts = [];
+  if (shared) parts.push(e.by || 'Alguien');
+  parts.push(fmtLogTs.format(new Date(e.ts)));
+  const fields = [...new Set((e.fields ?? []).map((f) => LOG_FIELD_NAMES[f] ?? f))];
+  if (fields.length) parts.push(`cambió: ${fields.join(', ')}`);
+  return parts.join(' · ');
+};
+
+const openLogDrawer = () => {
+  const v = trip();
+  if (!v) return;
+  const shared = store.isShared(v.id);
+  const entries = [...(v.log ?? [])].sort((a, b) => b.ts.localeCompare(a.ts));
+  $('log-empty').hidden = entries.length > 0;
+  $('log-list').replaceChildren(...entries.map((e) => {
+    const li = el('li', 'log-item');
+    li.append(
+      el('span', 'log-item__what', logLabel(e)),
+      el('span', 'log-item__sub', logDetail(e, shared)),
+    );
+    return li;
+  }));
+  els.dlgVacs.close();
+  $('dlg-log').showModal();
 };
 
 const showVacError = (msg) => {
@@ -771,12 +827,17 @@ const buildGptPrompt = () => {
     ? acts.map((a) => `${a.start}${a.end ? `→${a.end}` : ''} (${a.city})`).join(', ')
     : '(ninguna por ahora)';
   return [
-    `Sos mi asistente para organizar un viaje: «${v.meta.name}». Contexto:`,
+    `Sos mi asistente para planificar un viaje: «${v.meta.name}». Contexto:`,
     `- Estadía: del ${v.meta.start} al ${v.meta.end} (fechas fijas).`,
-    `- Base: ${v.meta.base.name} — vuelvo a dormir ahí salvo escapadas con noche.`,
-    '- Me encanta la fotografía: proponé spots de fotos (miradores, atardeceres, cascos antiguos).',
+    `- Base: ${v.meta.base.name} — duermo ahí salvo escapadas con noche.`,
     '',
-    'Ayudame a planificar paradas: escapadas de varios días, visitas por el día, museos, comida y lugares para fotografiar. Charlemos lo que haga falta; cuando yo escriba «exportar», respondé ÚNICAMENTE con un JSON válido (sin markdown, sin texto extra) con exactamente esta forma:',
+    'Trabajamos en tres pasos:',
+    '',
+    '1) ENTREVISTA. Antes de proponer nada, conoceme: haceme UNA sola pregunta por vez (corta, con opciones si ayuda) sobre qué me gusta y qué tengo ganas de hacer en este viaje: intereses (museos, comida, naturaleza, fotografía, teatro, música…), ritmo (relajado o intenso), con quién viajo, presupuesto, y lo que te parezca relevante. Esperá mi respuesta antes de la siguiente pregunta. Con 5 o 6 respuestas alcanza; si escribo «listo», pasá al paso 2.',
+    '',
+    '2) IDEAS. Con lo que sabés de mí, proponé actividades concretas en texto normal (todavía NO JSON): qué, en qué ciudad, qué día u horario conviene y por qué me puede gustar. Yo te voy a ir pidiendo cambios: alternativas, sacar o sumar cosas, ajustar fechas u horarios. Iteramos hasta que la lista me cierre. No hace falta llenar todos los días: lo que exportes se AGREGA a lo que ya tengo en la app, así que incluí solo lo que acordamos.',
+    '',
+    '3) EXPORTAR. Cuando yo escriba «exportar», respondé ÚNICAMENTE con un JSON válido (sin markdown, sin texto extra) con exactamente esta forma:',
     '',
     '{"app":"travel-42uy","version":2,"activities":[{"title":"Escapada a la costa","kind":"viaje","city":"Benidorm","lat":38.5342,"lon":-0.1314,"start":"2026-12-10","end":"2026-12-13","time":"","desc":"Playa y casco antiguo.","photos":[]},{"title":"Museo del Prado","kind":"museo","city":"Madrid","lat":40.4138,"lon":-3.6921,"start":"2026-12-14","end":"","time":"10:30","desc":"Colección permanente.","photos":[]}]}',
     '',
@@ -867,6 +928,9 @@ const start = async () => {
 
   els.btnVacations.onclick = () => openVacsDrawer();
   $('btn-vac-new').onclick = () => { els.dlgVacs.close(); openVacForm(); };
+  $('btn-vac-log').onclick = openLogDrawer;
+  const dlgLog = $('dlg-log');
+  dlgLog.onclick = (ev) => { if (ev.target === dlgLog) dlgLog.close(); };
   $('btn-welcome-new').onclick = () => openVacForm();
   $('btn-vac-cancel').onclick = () => els.dlgVacForm.close();
   els.dlgVacs.onclick = (ev) => { if (ev.target === els.dlgVacs) els.dlgVacs.close(); };

@@ -155,6 +155,53 @@ export const COMMANDS = {
   },
 };
 
+// ---------- registro de cambios (travel.log) ----------
+// Entradas estructuradas que se agregan al aplicar un comando — mismo camino
+// para dispatch local y replay de sync, así los cambios remotos llegan
+// atribuidos (actor viaja en el comando estampado). Solo lectura en la UI;
+// las etiquetas en español se arman al renderizar. Dedupe por cmdId: cubre
+// el coalescing de UPDATE_ACTIVITY (conserva el cmdId) y replays repetidos.
+
+const LOG_MAX = 200;
+
+const ACTIVITY_FIELDS = ['title', 'kind', 'city', 'lat', 'lon', 'start', 'end', 'time', 'desc'];
+const META_FIELDS = ['name', 'start', 'end', 'base'];
+
+const changedFields = (from, to, keys) =>
+  keys.filter((k) => JSON.stringify(from?.[k] ?? null) !== JSON.stringify(to?.[k] ?? null));
+
+const logSummary = (type, p) => {
+  switch (type) {
+    case 'ADD_ACTIVITY': return { action: 'add', title: p.activity.title };
+    case 'ADD_ACTIVITIES': return { action: 'add-many', count: p.activities.length };
+    case 'UPDATE_ACTIVITY':
+      return { action: 'update', title: p.to.title, fields: changedFields(p.from, p.to, ACTIVITY_FIELDS) };
+    case 'REMOVE_ACTIVITY': return { action: 'remove', title: p.activity.title };
+    case 'REMOVE_ACTIVITIES': return { action: 'remove-many', count: p.activities.length };
+    case 'SET_ACTIVITIES': return { action: 'import', count: p.activities.length };
+    case 'ADD_ATTACHMENT': return { action: 'attach', title: p.attachment.name };
+    case 'REMOVE_ATTACHMENT': return { action: 'detach', title: p.attachment.name };
+    case 'UPDATE_VACATION_META': return { action: 'meta', fields: changedFields(p.from, p.to, META_FIELDS) };
+    default: return { action: type };
+  }
+};
+
+export const appendLog = (v, cmd) => {
+  const entry = {
+    cmdId: cmd.cmdId,
+    ts: iso(cmd.ts),
+    by: cmd.actor ?? null,
+    ...logSummary(cmd.type, cmd.payload),
+  };
+  const log = v.log ?? [];
+  const i = log.findIndex((e) => e.cmdId === cmd.cmdId);
+  v.log = (i >= 0 ? log.map((e, j) => (j === i ? entry : e)) : [...log, entry]).slice(-LOG_MAX);
+};
+
+export const removeLogEntry = (v, cmdId) => {
+  if (v.log?.some((e) => e.cmdId === cmdId)) v.log = v.log.filter((e) => e.cmdId !== cmdId);
+};
+
 export const makeCommand = (type, payload) => ({ type, payload });
 
 // Inverse command for the pending sync log when undoing an already-logged

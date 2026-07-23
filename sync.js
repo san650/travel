@@ -8,7 +8,7 @@
 // comando), es un conflicto y decide el usuario (mío/de ellos).
 
 import { store } from './store.js';
-import { COMMANDS, conflictTargets } from './commands.js';
+import { COMMANDS, conflictTargets, appendLog } from './commands.js';
 import * as drive from './drive.js';
 import { getAttachmentBlob } from './db.js';
 
@@ -64,6 +64,11 @@ export const validateRemote = (data, expectedTravelId) => {
   if (!Array.isArray(t.activities) || t.activities.some((a) => !a || typeof a.id !== 'string')) throw bad('activities');
   if (!Array.isArray(t.attachments)) t.attachments = [];
   if (t.attachments.some((a) => !a || typeof a.id !== 'string')) throw bad('attachments');
+  // Registro de cambios: tolerante (viajes viejos no lo tienen) y acotado.
+  if (!Array.isArray(t.log)) t.log = [];
+  t.log = t.log
+    .filter((e) => e && typeof e.cmdId === 'string' && typeof e.ts === 'string')
+    .slice(-200);
   return { revision: data.revision, travel: t };
 };
 
@@ -124,11 +129,13 @@ const replay = (remoteTravel, pending, resolutions) => {
     const clashes = findClashes(travel, cmd);
     if (!clashes.length) {
       COMMANDS[cmd.type].apply(travel, cmd.payload, cmd);
+      appendLog(travel, cmd);
       continue;
     }
     const choice = resolutions?.[cmd.cmdId];
     if (choice === 'mine') {
       forceApply(travel, cmd);
+      appendLog(travel, cmd);
     } else if (choice === 'theirs') {
       // descartado: gana el estado remoto
     } else {

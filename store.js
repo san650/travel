@@ -1,4 +1,4 @@
-import { COMMANDS, isNoOp, invert } from './commands.js';
+import { COMMANDS, isNoOp, invert, appendLog, removeLogEntry } from './commands.js';
 import { History } from './history.js';
 import {
   loadState, saveState, requestPersistence,
@@ -222,6 +222,7 @@ class Store {
     def.apply(travel, stamped.payload, stamped);
     this.state = next;
     const { cmd: recorded, coalesced } = this.history.record(stamped);
+    appendLog(travel, recorded);
     this.#appendPending(travel.id, recorded, coalesced);
     this.#persist();
     this.#notify();
@@ -234,6 +235,7 @@ class Store {
     const travel = next.doc.vacations.find((v) => v.id === next.doc.activeId);
     if (!travel) return null;
     COMMANDS[cmd.type].revert(travel, cmd.payload);
+    removeLogEntry(travel, cmd.cmdId);
     this.state = next;
     this.history.pushFuture(cmd);
     const rec = this.sync.get(travel.id);
@@ -266,6 +268,7 @@ class Store {
     const travel = next.doc.vacations.find((v) => v.id === next.doc.activeId);
     if (!travel) return null;
     COMMANDS[cmd.type].apply(travel, cmd.payload, cmd);
+    appendLog(travel, cmd);
     this.state = next;
     this.history.pushPast(cmd);
     const rec = this.sync.get(travel.id);
