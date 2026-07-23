@@ -44,7 +44,9 @@ drive.file test), `docs/drive-setup.md` (dev notes).
 ## Data model (schema v3)
 
 `doc = { schemaVersion: 3, vacations: [travel…], activeId }`. Each travel
-is an **aggregate**:
+is an **aggregate**. `vacations` is append-ordered (create and join both
+push) — the launch splash mosaic reads array order as creation order, so
+never reorder it:
 
 ```
 { id, revision,                     // revision = optimistic-concurrency counter (sync)

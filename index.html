@@ -117,6 +117,24 @@
       <circle cx="12" cy="12" r="8.2" />
       <path d="M12 7.5V12l3.2 1.9" />
     </symbol>
+    <symbol id="m-sun" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <circle cx="32" cy="32" r="11" />
+      <path d="M32 9v7M32 48v7M9 32h7M48 32h7M15.5 15.5l5 5M43.5 43.5l5 5M48.5 15.5l-5 5M20.5 43.5l-5 5" />
+    </symbol>
+    <symbol id="m-waves" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <path d="M6 20c5-6 12-6 17 0s12 6 17 0 12-6 18 0" />
+      <path d="M6 33c5-6 12-6 17 0s12 6 17 0 12-6 18 0" />
+      <path d="M6 46c5-6 12-6 17 0s12 6 17 0 12-6 18 0" />
+    </symbol>
+    <symbol id="m-peak" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 49 22 19l11 18 8-11 18 23" />
+      <circle cx="47" cy="13" r="4.5" />
+    </symbol>
+    <symbol id="m-compass" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="32" cy="32" r="21" />
+      <path d="M41 23l-6.5 4.5L27 41l6.5-4.5z" />
+      <path d="M32 7v4M32 53v4M7 32h4M53 32h4" />
+    </symbol>
   </svg>
 
   <div id="persist-banner" class="banner" role="alert" hidden>
@@ -157,6 +175,40 @@
       <button type="button" id="sync-chip" class="sync-chip" hidden></button>
     </div>
   </header>
+
+  <section id="splash" class="splash" hidden>
+    <header class="splash__head">
+      <svg class="splash__mark" aria-hidden="true"><use href="#m-sun" /></svg>
+      <h2 class="splash__title">Travel</h2>
+      <p class="splash__sub">¿A dónde vamos esta vez?</p>
+    </header>
+    <ul id="splash-grid" class="splash__grid"></ul>
+    <div class="splash__foot">
+      <button type="button" id="btn-splash-new" class="btn splash__new">
+        <svg width="17" height="17" aria-hidden="true"><use href="#i-plus" /></svg>
+        Nuevo viaje
+      </button>
+    </div>
+  </section>
+
+  <template id="tpl-splash-tile">
+    <li class="splash-tile">
+      <button type="button" class="splash-tile__btn" data-slot="open">
+        <span class="splash-tile__band" aria-hidden="true">
+          <span class="splash-tile__dest" data-slot="dest"></span>
+          <svg class="splash-tile__motif" aria-hidden="true"><use data-slot="motif" href="#m-sun" /></svg>
+        </span>
+        <span class="splash-tile__body">
+          <span class="splash-tile__name" data-slot="name"></span>
+          <span class="splash-tile__dates" data-slot="dates"></span>
+          <span class="splash-tile__shared" data-slot="shared" hidden>
+            <svg width="12" height="12" aria-hidden="true"><use href="#i-people" /></svg>
+            <span data-slot="shared-text"></span>
+          </span>
+        </span>
+      </button>
+    </li>
+  </template>
 
   <main id="view">
     <section id="welcome" class="empty welcome" hidden>

@@ -195,6 +195,75 @@ const openVacsDrawer = () => {
   els.dlgVacs.showModal();
 };
 
+// ---------- splash: pared de afiches ----------
+// Primera pantalla: mosaico de viajes por fecha de creación (desc). El array
+// doc.vacations se llena por append (crear y unirse), así que el orden de
+// creación es el del array — no hace falta un createdAt.
+
+const SPLASH_PALETTE = [
+  ['#C73E1D', '#F3D9CE'],
+  ['#20668C', '#D6E4EC'],
+  ['#7B4B94', '#E4D9EC'],
+  ['#4E7C4E', '#DCE7D8'],
+  ['#B07D2B', '#F0E3C8'],
+  ['#AD3B6E', '#EFD8E2'],
+];
+const SPLASH_MOTIFS = ['#m-sun', '#m-waves', '#m-peak', '#m-compass'];
+
+// Con quién está compartido: nombres vistos en el registro y en los stamps
+// de entidades (updatedBy), menos el propio. Sin red: es lo que ya sabemos.
+const sharedWithNames = (v) => {
+  const names = new Set();
+  for (const e of v.log ?? []) if (e.by) names.add(e.by);
+  for (const a of v.activities) if (a.updatedBy) names.add(a.updatedBy);
+  for (const a of v.attachments) if (a.updatedBy) names.add(a.updatedBy);
+  if (v.meta.updatedBy) names.add(v.meta.updatedBy);
+  names.delete(store.actor);
+  return [...names];
+};
+
+const hideSplash = () => {
+  const s = $('splash');
+  if (s.hidden) return;
+  s.classList.add('splash--closing');
+  setTimeout(() => { s.hidden = true; s.classList.remove('splash--closing'); }, 320);
+};
+
+const showSplash = () => {
+  const { vacations } = store.state.doc;
+  if (!vacations.length) return;
+  const list = [...vacations].reverse();
+  $('splash-grid').replaceChildren(...list.map((v, i) => {
+    const li = cloneTpl('tpl-splash-tile');
+    if (i === 0) li.classList.add('splash-tile--featured');
+    const [accent, soft] = SPLASH_PALETTE[i % SPLASH_PALETTE.length];
+    li.style.setProperty('--accent', accent);
+    li.style.setProperty('--accent-soft', soft);
+    li.style.setProperty('--i', String(Math.min(i, 8)));
+    li.classList.add('is-animate');
+    slot(li, 'motif').setAttribute('href', SPLASH_MOTIFS[i % SPLASH_MOTIFS.length]);
+    slot(li, 'dest').textContent = v.meta.base.name;
+    slot(li, 'name').textContent = v.meta.name;
+    slot(li, 'dates').textContent = fmtTripRange(v);
+    if (store.isShared(v.id)) {
+      slot(li, 'shared').hidden = false;
+      const names = sharedWithNames(v);
+      slot(li, 'shared-text').textContent = names.length
+        ? `Con ${names.slice(0, 2).join(' y ')}${names.length > 2 ? ` +${names.length - 2}` : ''}`
+        : 'Compartido';
+    }
+    slot(li, 'open').onclick = () => {
+      if (v.id !== store.state.doc.activeId) {
+        resetView();
+        store.switchVacation(v.id);
+      }
+      hideSplash();
+    };
+    return li;
+  }));
+  $('splash').hidden = false;
+};
+
 // ---------- historial de cambios ----------
 
 const fmtLogTs = new Intl.DateTimeFormat('es', {
@@ -976,8 +1045,11 @@ const start = async () => {
   wireSwReload();
   initShare();
 
+  $('btn-splash-new').onclick = () => { hideSplash(); openVacForm(); };
+
   store.subscribe(render);
   render();
+  showSplash();
   requestAnimationFrame(() => tripMap.invalidateSize());
 };
 

@@ -1,5 +1,5 @@
 const CACHE_NAME = 'travel42uy';
-const VERSION = 'v32';
+const VERSION = 'v33';
 const CACHE = `${CACHE_NAME}-${VERSION}`;
 
 const SHELL = [
