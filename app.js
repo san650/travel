@@ -192,7 +192,6 @@ const renderVacList = () => {
 
 const openVacsDrawer = () => {
   renderVacList();
-  $('btn-vac-log').hidden = !trip();
   els.dlgVacs.showModal();
 };
 
@@ -247,7 +246,6 @@ const openLogDrawer = () => {
     );
     return li;
   }));
-  els.dlgVacs.close();
   $('dlg-log').showModal();
 };
 
@@ -928,7 +926,7 @@ const start = async () => {
 
   els.btnVacations.onclick = () => openVacsDrawer();
   $('btn-vac-new').onclick = () => { els.dlgVacs.close(); openVacForm(); };
-  $('btn-vac-log').onclick = openLogDrawer;
+  $('btn-log').onclick = () => { els.dlgTools.close(); openLogDrawer(); };
   const dlgLog = $('dlg-log');
   dlgLog.onclick = (ev) => { if (ev.target === dlgLog) dlgLog.close(); };
   $('btn-welcome-new').onclick = () => openVacForm();

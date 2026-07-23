@@ -162,8 +162,8 @@
       </ul>
       <div class="note">La app queda en modo <strong>Prueba</strong> (Testing):
       solo las cuentas que agregues como «test users» van a poder conectarse.
-      Para un grupo de amigos alcanza y no hace falta el proceso de
-      verificación de Google (hasta 100 usuarios).</div>
+      Sirve para arrancar, pero lo cómodo es publicarla — es un botón y no
+      requiere revisión de Google (paso 9).</div>
     </section>
 
     <section class="step">
@@ -174,7 +174,9 @@
       <span class="path">+ Add users</span> y agregá tu email y el de cada
       persona que vayas a invitar a un viaje.</p>
       <div class="note">Si alguien ve «Error 403: access_denied» al conectar,
-      es esto: su email no está en la lista de usuarios de prueba.</div>
+      es esto: su email no está en la lista de usuarios de prueba.
+      Este paso solo hace falta mientras la app está en modo Prueba: si la
+      publicás (paso 9), podés saltearlo.</div>
     </section>
 
     <section class="step">
@@ -224,8 +226,34 @@
       Se guardan solo en tu dispositivo.</p>
       <div class="note">Al conectar por primera vez Google muestra
       «Google no verificó esta app»: es lo esperado en modo Prueba. Tocá
-      <em>Continuar</em>. La autorización real la controlan los permisos de la
-      carpeta compartida en Drive.</div>
+      <em>Continuar</em>. Desaparece al publicar la app (paso 9). La
+      autorización real la controlan los permisos de la carpeta compartida
+      en Drive.</div>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">9</span>Publicar la app (recomendado)</h2>
+      <p>Cuando todo funcione, publicala: <span class="path">Google Auth
+      Platform → Público</span> → botón
+      <span class="path">Publicar aplicación</span> → confirmar. Listo: queda
+      «En producción» al instante, sin revisión de Google.</p>
+      <p>¿Por qué no pide verificación? Porque la app usa solo el permiso
+      <code>drive.file</code>, que Google clasifica como «no sensible». Con
+      eso no hay proceso de revisión, ni tope de usuarios, ni pantallas de
+      advertencia.</p>
+      <p>Qué ganás al publicar:</p>
+      <ul>
+        <li><strong>Invitás a cualquiera</strong> con cuenta de Google: se
+        acabó la lista de usuarios de prueba y el «Error 403».</li>
+        <li><strong>La conexión no vence</strong>: en modo Prueba, Google
+        pide re-autorizar cada 7 días; publicada, no.</li>
+        <li><strong>Sin aviso de app no verificada</strong> al conectar.</li>
+      </ul>
+      <div class="note">Publicar no cambia la seguridad: cada persona sigue
+      viendo solo lo que le compartiste por permisos de Drive, y el Client ID
+      y la API key ya eran públicos. Existe una «verificación de marca»
+      opcional para mostrar logo en la pantalla de consentimiento — no hace
+      falta.</div>
     </section>
 
     <footer>Los tres valores son identificadores públicos. La app usa el

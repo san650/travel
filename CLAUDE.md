@@ -55,8 +55,8 @@ is an **aggregate**:
   log:         [{ cmdId, ts, by, action, title?|count?, fields? }] }
 ```
 
-- `log` = view-only change history («Historial de cambios» in the vacations
-  drawer), capped at 200. Appended centrally in `appendLog()` (commands.js)
+- `log` = view-only change history («Historial de cambios» in the
+  Herramientas drawer), capped at 200. Appended centrally in `appendLog()` (commands.js)
   on every command apply — local dispatch, redo, AND sync replay, so remote
   members' changes arrive attributed via the stamped command's `actor`.
   Undo removes the entry by `cmdId` (dedupe by `cmdId` also absorbs
@@ -103,8 +103,11 @@ schemaVersion, revision, updatedAt/By, travel) + attachment files.
   flow everywhere — chosen because iOS PWAs can't capture URLs. Two steps
   remain: email permission grant (Drive `writer`/`reader` on the folder) +
   the file. The fileId is an address, not a capability — Drive checks the
-  authenticated user's permission. Friends must also be test users in the
-  Cloud project (OAuth app stays in Testing mode).
+  authenticated user's permission. While the OAuth app is in Testing mode,
+  friends must also be test users in the Cloud project; publishing to
+  production (Audience → Publish app) lifts that plus the 7-day
+  re-authorization — no Google review needed because `drive.file` is a
+  non-sensitive scope (see `setup-google.html` paso 9).
 - **drive.file trap**: an invitee's token cannot open the file by ID until
   they pick the shared folder once via the Google Picker — the join flow
   falls back to the Picker on 403/404.

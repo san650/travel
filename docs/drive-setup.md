@@ -21,11 +21,12 @@ como tal).
 4. **☰ → Google Auth Platform** → «Comenzar» (asistente inicial):
    - Información de la app: nombre + email de asistencia.
    - Público (Audience): **Externo** (no se puede cambiar después).
-   - La app queda en modo **Prueba** (Testing): alcanza para un grupo de
-     amigos, hasta 100 test users, sin verificación de Google.
+   - La app queda en modo **Prueba** (Testing); publicarla después es un
+     botón sin revisión (paso 8).
 5. **Google Auth Platform → Público → Usuarios de prueba → + Add users**:
    agregar tu email y el de cada amigo. (Un invitado fuera de esta lista ve
-   «Error 403: access_denied».)
+   «Error 403: access_denied».) Solo necesario mientras la app siga en
+   modo Prueba.
 6. **Google Auth Platform → Clientes → + Crear cliente**:
    - Tipo: **Aplicación web**.
    - Orígenes de JavaScript autorizados: `https://travel.42.uy` y
@@ -38,6 +39,14 @@ como tal).
 7. **☰ → APIs y servicios → Credenciales → + Crear credenciales → Clave de
    API** → copiar la **API key** (`AIza…`). Recomendado restringirla:
    Sitios web (los dos orígenes) + Restricciones de API → Google Picker API.
+8. **Publicar** (recomendado, cuando todo funcione): **Google Auth Platform
+   → Público → Publicar aplicación** → confirmar. Inmediato y sin revisión
+   de Google: `drive.file` es un scope **no sensible**, así que no hay
+   verificación, ni tope de usuarios, ni aviso de «app no verificada».
+   Beneficios: cualquier cuenta de Google puede conectarse (adiós lista de
+   test users y 403), y desaparece la re-autorización cada 7 días del modo
+   Prueba. La seguridad no cambia: siguen mandando los permisos de la
+   carpeta en Drive.
 
 ## Dónde van
 
