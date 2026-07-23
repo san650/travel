@@ -1026,7 +1026,10 @@ const start = async () => {
   wireSwReload();
   initShare();
 
-  $('btn-splash-new').onclick = () => { hideSplash(); openVacForm(); };
+  // Sin hideSplash: el diálogo (top layer) se ve sobre el mosaico y el
+  // splash se cierra solo cuando el viaje nuevo pasa a ser el activo.
+  // Cancelar te deja en el dashboard.
+  $('btn-splash-new').onclick = () => openVacForm();
 
   store.subscribe(render);
   render();
