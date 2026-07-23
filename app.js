@@ -1032,8 +1032,11 @@ const start = async () => {
   $('btn-splash-new').onclick = () => openVacForm();
 
   store.subscribe(render);
+  // El splash ya está visible desde el HTML: poblarlo ANTES del primer
+  // render para que el layout del viaje nunca se vea de fondo al arrancar.
+  if (store.state.doc.vacations.length) showSplash();
+  else $('splash').hidden = true;
   render();
-  showSplash();
   requestAnimationFrame(() => tripMap.invalidateSize());
 };
 

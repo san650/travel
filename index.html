@@ -165,7 +165,9 @@
     </div>
   </header>
 
-  <section id="splash" class="splash" hidden>
+  <!-- Visible desde el primer paint (sin `hidden`): tapa el layout del viaje
+       mientras arranca la app; start() lo puebla o lo esconde si no hay viajes. -->
+  <section id="splash" class="splash">
     <header class="splash__head">
       <svg class="splash__mark" aria-hidden="true"><use href="#m-sun" /></svg>
       <h2 class="splash__title">Travel</h2>
