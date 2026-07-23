@@ -676,7 +676,6 @@ export const initShare = () => {
   $('btn-join-cancel').onclick = () => els.dlgJoin.close();
 
   $('btn-vac-join').onclick = () => {
-    $('dlg-vacations').close();
     $('file-invite').click();
   };
   $('file-invite').onchange = () => {

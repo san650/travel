@@ -145,7 +145,7 @@
   <header class="hdr">
     <div class="hdr__text">
       <h1 class="hdr__h">
-        <button type="button" id="btn-vacations" class="hdr__switch" aria-haspopup="dialog">
+        <button type="button" id="btn-vacations" class="hdr__switch" aria-label="Volver a tus viajes">
           <span class="hdr__title-row">
             <span class="hdr__title" data-slot="trip-name">Travel</span>
             <svg class="hdr__chev" viewBox="0 0 24 24" width="18" height="18" fill="none"
@@ -172,11 +172,18 @@
         <svg width="17" height="17" aria-hidden="true"><use href="#i-plus" /></svg>
         Nuevo viaje
       </button>
+      <button type="button" id="btn-vac-join" class="btn splash__new">
+        <svg width="17" height="17" aria-hidden="true"><use href="#i-people" /></svg>
+        Unirse con una invitación
+      </button>
     </div>
   </section>
 
   <template id="tpl-splash-tile">
     <li class="splash-tile">
+      <button type="button" class="splash-tile__del" data-slot="del" aria-label="Borrar viaje">
+        <svg width="14" height="14" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
       <button type="button" class="splash-tile__btn" data-slot="open">
         <span class="splash-tile__band" aria-hidden="true">
           <span class="splash-tile__dest" data-slot="dest"></span>
@@ -458,42 +465,12 @@
     </div>
   </dialog>
 
-  <dialog id="dlg-vacations" class="drawer" aria-labelledby="vacs-title">
-    <div class="drawer__handle" aria-hidden="true"></div>
-    <h2 id="vacs-title">Tus viajes</h2>
-    <ul id="vac-list" class="vac-list"></ul>
-    <button type="button" id="btn-vac-new" class="drawer__item vac-new">
-      <span class="drawer__icon" aria-hidden="true"><svg width="20" height="20"><use href="#i-plus" /></svg></span>
-      <span class="drawer__label">Nuevo viaje
-        <small>Nombre, fechas y primera ciudad</small>
-      </span>
-    </button>
-    <button type="button" id="btn-vac-join" class="drawer__item vac-new">
-      <span class="drawer__icon" aria-hidden="true"><svg width="20" height="20"><use href="#i-people" /></svg></span>
-      <span class="drawer__label">Unirse con una invitación
-        <small>Abrí el archivo .travel.invite que te mandaron</small>
-      </span>
-    </button>
-  </dialog>
-
   <dialog id="dlg-log" class="drawer" aria-labelledby="log-title">
     <div class="drawer__handle" aria-hidden="true"></div>
     <h2 id="log-title">Historial de cambios</h2>
     <p id="log-empty" class="log-empty" hidden>Sin cambios registrados todavía. Los cambios anteriores a esta versión de la app no quedaron anotados.</p>
     <ul id="log-list" class="log-list"></ul>
   </dialog>
-
-  <template id="tpl-vac">
-    <li class="vac">
-      <button type="button" class="vac__main" data-slot="open">
-        <span class="vac__name" data-slot="name"></span>
-        <span class="vac__sub" data-slot="sub"></span>
-      </button>
-      <button type="button" class="vac__del" data-slot="delete" aria-label="Borrar viaje">
-        <svg width="18" height="18" aria-hidden="true"><use href="#i-x" /></svg>
-      </button>
-    </li>
-  </template>
 
   <dialog id="dlg-vacation" class="dlg" aria-labelledby="dlg-vac-title">
     <form id="form-vacation" novalidate>

@@ -996,75 +996,6 @@ main {
   color: var(--ink-soft);
 }
 
-/* ---------- selector de viajes ---------- */
-
-.vac-list {
-  list-style: none;
-  margin: 0 0 0.55rem;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.vac {
-  display: flex;
-  align-items: stretch;
-  gap: 0.5rem;
-}
-
-.vac__main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  text-align: left;
-  background: var(--cream);
-  color: var(--ink);
-  border: 2px solid var(--ink);
-  border-radius: 12px;
-  padding: 0.55rem 0.8rem;
-  box-shadow: 0 2px 0 rgba(58, 44, 35, 0.2);
-}
-
-.vac__main:active { translate: 0 1px; box-shadow: none; }
-
-.vac--active .vac__main {
-  border-color: var(--terra);
-  box-shadow: 0 2px 0 var(--terra-dark);
-}
-
-.vac--active .vac__name { color: var(--terra); }
-
-.vac__name {
-  font-family: 'Alegreya', Georgia, serif;
-  font-weight: 800;
-  font-size: 1.05rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.vac__sub {
-  font-size: 0.8rem;
-  color: var(--ink-soft);
-}
-
-.vac__del {
-  flex: none;
-  width: 44px;
-  display: grid;
-  place-items: center;
-  background: var(--cream);
-  color: var(--terra-dark);
-  border: 2px solid var(--terra-dark);
-  border-radius: 12px;
-  box-shadow: 0 2px 0 rgba(58, 44, 35, 0.2);
-}
-
-.vac__del:active { translate: 0 1px; box-shadow: none; }
-
 /* ---------- splash: pared de afiches ---------- */
 
 .splash {
@@ -1134,8 +1065,27 @@ main {
   gap: 1rem 0.9rem;
 }
 
-.splash-tile { display: grid; }
+.splash-tile { position: relative; display: grid; }
 .splash-tile--featured { grid-column: 1 / -1; }
+
+.splash-tile__del {
+  position: absolute;
+  top: -9px;
+  right: -7px;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  background: var(--cream);
+  color: var(--terra-dark);
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  box-shadow: 0 2px 0 rgba(62, 20, 8, 0.5);
+  transform: rotate(var(--rot, 0deg));
+}
+
+.splash-tile__del:active { translate: 0 1px; box-shadow: none; }
 
 .splash-tile__btn {
   display: flex;
@@ -1257,7 +1207,10 @@ main {
 .splash__foot {
   max-width: var(--col);
   margin: 1.3rem auto 0;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .splash__new {

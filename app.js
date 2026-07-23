@@ -50,8 +50,6 @@ const els = {
   tripName: document.querySelector('[data-slot="trip-name"]'),
   tripSub: document.querySelector('[data-slot="trip-sub"]'),
   btnVacations: $('btn-vacations'),
-  dlgVacs: $('dlg-vacations'),
-  vacList: $('vac-list'),
   dlgVacForm: $('dlg-vacation'),
   vacForm: $('form-vacation'),
   vacError: $('vac-error'),
@@ -158,47 +156,11 @@ const resetView = () => {
   hideRoute();
 };
 
-const renderVacList = () => {
-  const { vacations, activeId } = store.state.doc;
-  els.vacList.replaceChildren(...vacations.map((v) => {
-    const li = cloneTpl('tpl-vac');
-    if (v.id === activeId) li.classList.add('vac--active');
-    slot(li, 'name').textContent = v.meta.name;
-    const n = alive(v.activities).length;
-    const shared = store.isShared(v.id) ? ' · compartido' : '';
-    slot(li, 'sub').textContent =
-      `${fmtTripRange(v)} · base ${v.meta.base.name} · ${n === 1 ? '1 parada' : `${n} paradas`}${shared}`;
-    slot(li, 'open').onclick = () => {
-      els.dlgVacs.close();
-      if (v.id !== activeId) {
-        resetView();
-        store.switchVacation(v.id);
-      }
-    };
-    slot(li, 'delete').onclick = async () => {
-      const ok = await askConfirm({
-        title: `¿Borrar «${v.meta.name}»?`,
-        body: 'Se pierden todas sus paradas. No se puede deshacer.',
-      });
-      if (!ok) return;
-      resetView();
-      store.deleteVacation(v.id);
-      renderVacList();
-      if (!store.state.doc.vacations.length) els.dlgVacs.close();
-    };
-    return li;
-  }));
-};
-
-const openVacsDrawer = () => {
-  renderVacList();
-  els.dlgVacs.showModal();
-};
-
-// ---------- splash: pared de afiches ----------
-// Primera pantalla: mosaico de viajes por fecha de creación (desc). El array
-// doc.vacations se llena por append (crear y unirse), así que el orden de
-// creación es el del array — no hace falta un createdAt.
+// ---------- splash: pared de afiches (dashboard de viajes) ----------
+// Primera pantalla y hub único: acá se elige, crea, borra y se une a viajes.
+// Mosaico por fecha de creación (desc). El array doc.vacations se llena por
+// append (crear y unirse), así que el orden de creación es el del array —
+// no hace falta un createdAt.
 
 const SPLASH_PALETTE = [
   ['#C73E1D', '#F3D9CE'],
@@ -222,16 +184,23 @@ const sharedWithNames = (v) => {
   return [...names];
 };
 
+let splashTimer = null;
+let splashShownFor = null; // activeId al abrir: si cambia, el splash se cierra
+
 const hideSplash = () => {
   const s = $('splash');
   if (s.hidden) return;
   s.classList.add('splash--closing');
-  setTimeout(() => { s.hidden = true; s.classList.remove('splash--closing'); }, 320);
+  clearTimeout(splashTimer);
+  splashTimer = setTimeout(() => { s.hidden = true; s.classList.remove('splash--closing'); }, 320);
 };
 
 const showSplash = () => {
   const { vacations } = store.state.doc;
   if (!vacations.length) return;
+  splashShownFor = store.state.doc.activeId;
+  clearTimeout(splashTimer);
+  $('splash').classList.remove('splash--closing');
   const list = [...vacations].reverse();
   $('splash-grid').replaceChildren(...list.map((v, i) => {
     const li = cloneTpl('tpl-splash-tile');
@@ -258,6 +227,16 @@ const showSplash = () => {
         store.switchVacation(v.id);
       }
       hideSplash();
+    };
+    slot(li, 'del').onclick = async () => {
+      const ok = await askConfirm({
+        title: `¿Borrar «${v.meta.name}»?`,
+        body: 'Se pierden todas sus paradas. No se puede deshacer.',
+      });
+      if (!ok) return;
+      resetView();
+      store.deleteVacation(v.id);
+      if (store.state.doc.vacations.length) showSplash();
     };
     return li;
   }));
@@ -724,6 +703,10 @@ const render = () => {
   const v = trip();
   const inApp = Boolean(v);
 
+  // El splash se cierra solo cuando otro viaje pasa a ser el activo (elegir
+  // en el mosaico, unirse por invitación). Borrar re-abre con showSplash().
+  if (!$('splash').hidden && store.state.doc.activeId !== splashShownFor) hideSplash();
+
   els.welcome.hidden = inApp;
   els.mapCard.hidden = !inApp;
   els.timeline.hidden = !inApp;
@@ -993,14 +976,12 @@ const start = async () => {
   els.undo.onclick = () => store.undo();
   els.redo.onclick = () => store.redo();
 
-  els.btnVacations.onclick = () => openVacsDrawer();
-  $('btn-vac-new').onclick = () => { els.dlgVacs.close(); openVacForm(); };
+  els.btnVacations.onclick = () => showSplash();
   $('btn-log').onclick = () => { els.dlgTools.close(); openLogDrawer(); };
   const dlgLog = $('dlg-log');
   dlgLog.onclick = (ev) => { if (ev.target === dlgLog) dlgLog.close(); };
   $('btn-welcome-new').onclick = () => openVacForm();
   $('btn-vac-cancel').onclick = () => els.dlgVacForm.close();
-  els.dlgVacs.onclick = (ev) => { if (ev.target === els.dlgVacs) els.dlgVacs.close(); };
 
   els.fabTools.onclick = () => els.dlgTools.showModal();
   els.dlgTools.onclick = (ev) => { if (ev.target === els.dlgTools) els.dlgTools.close(); };
